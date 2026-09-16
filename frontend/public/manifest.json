@@ -1,0 +1,19 @@
+{
+  "name": "IHSG Terminal Pro",
+  "short_name": "IHSG Terminal",
+  "description": "Smart Stock Recommendation & Decision Support System untuk Seluruh Saham IDX",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#060B18",
+  "theme_color": "#060B18",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "productivity", "utilities"]
+}
