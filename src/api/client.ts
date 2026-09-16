@@ -10,8 +10,9 @@ import type {
   ScanningProgress
 } from '../types/stock';
 
-const ROOT_API = 'http://localhost:8000';
-const API_BASE = 'http://localhost:8000/api/v1';
+// All requests go through /api/ which Vercel Serverless routes to api/index.py
+const ROOT_API = '/api';
+const API_BASE = '/api/v1';
 
 // Token interceptor
 let authToken: string | null = localStorage.getItem('ihsg_auth_token');
@@ -25,12 +26,25 @@ export const setApiAuthToken = (token: string | null) => {
   }
 };
 
+// Set global axios timeout
+axios.defaults.timeout = 30000;
+
 axios.interceptors.request.use((config) => {
   if (authToken && config.headers) {
     config.headers.Authorization = `Bearer ${authToken}`;
   }
   return config;
 });
+
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      console.warn('[API Timeout] Request exceeded 30s limit.');
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const api = {
   // --- AUTHENTICATION (GOOGLE OAUTH & EMAIL) ---
