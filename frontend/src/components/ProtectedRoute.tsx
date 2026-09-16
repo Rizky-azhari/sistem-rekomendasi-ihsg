@@ -16,7 +16,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   onNavigateHome,
   onOpenLogin
 }) => {
-  const { user, role, isAuthenticated, isLoading, loginWithGoogle } = useAuth();
+  const { user, role, isAuthenticated, isLoading } = useAuth();
   const [showLoginModal, setShowLoginModal] = React.useState(false);
 
   if (isLoading) {
@@ -50,7 +50,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
             <div className="flex flex-col gap-3">
               <button
-                onClick={() => setShowLoginModal(true)}
+                onClick={() => onOpenLogin ? onOpenLogin() : setShowLoginModal(true)}
                 className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-slate-950 font-bold text-xs tracking-wider uppercase transition-all shadow-lg shadow-cyan-500/20 cursor-pointer flex items-center justify-center gap-2"
               >
                 <LogIn className="w-4 h-4" />
