@@ -132,12 +132,13 @@ graph LR
   - Persentase rasio saham Bullish vs Bearish di pasar.
   - Waktu sinkronisasi data terakhir.
 - **Status Pemindaian Real-Time (*Scanner Progress Bar*)**: Indikator persentase pemindaian pasar aktif dilengkapi tombol *Scan Semua IHSG* dan *Sync Emiten*.
-- **Visualisasi Distribusi Rekomendasi**: Diagram batang proporsional yang memetakan jumlah saham berkategori *Strong Buy*, *Buy*, *Hold*, dan *Sell*.
-- **Modul Pelacak Akumulasi Bandar (*Bandarmology Tracker Section*)**:
-  - Bagian khusus pada dashboard yang menyorot saham-saham pilihan yang sedang diakumulasi oleh *smart money* / bandar.
-  - Kartu saham interaktif dengan aksen bercahaya (*glow card*), status akumulasi (*Masif* atau *Normal*), rasio lonjakan volume terhadap rata-rata 20 hari, dan bar kekuatan akumulasi bandar.
-  - Tautan langsung ke analisis detail teknikal saham bersangkutan.
-- **Top Rekomendasi Saham Pilihan**: Daftar emiten dengan skor kelayakan tertinggi di pasar beserta parameter harga, rasio risiko-imbal hasil, dan tombol pintas analisis.
+- **Distribusi Rekomendasi**: Ringkasan jumlah saham dalam kategori *Strong Buy*, *Buy*, *Hold*, dan *Sell*.
+- **Akumulasi Bandar (*Bandarmology Tracker*)**:
+  - Menampilkan saham IDX80 yang sedang diakumulasi institusi dan *smart money*.
+  - Disajikan dalam format kartu interaktif dengan status akumulasi (*Masif* atau *Normal*), rasio lonjakan volume, dan skor kekuatan.
+- **Top Rekomendasi Saham**:
+  - Saham pilihan dengan sinyal teknikal dan rasio *Risk-to-Reward* terbaik.
+  - Menggunakan format kartu modern yang selaras dengan modul akumulasi bandar.
 
 ---
 

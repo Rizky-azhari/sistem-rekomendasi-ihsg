@@ -6,6 +6,7 @@ import {
   Flame
 } from 'lucide-react';
 import type { IHSGMarketData, ScreenerRuleItem } from '../../types/stock';
+import { isIDX80Stock } from '../../constants/idx80';
 
 interface LiveStockTickerProps {
   ihsg?: IHSGMarketData | null;
@@ -13,7 +14,7 @@ interface LiveStockTickerProps {
   onSelectStock: (symbol: string) => void;
 }
 
-// Fallback IDX stock items if live scanner list is still loading
+// Fallback verified IDX80 stock items if live scanner list is still loading
 const DEFAULT_TICKER_DATA: Array<{
   symbol: string;
   price: number;
@@ -28,14 +29,19 @@ const DEFAULT_TICKER_DATA: Array<{
   { symbol: 'TLKM', price: 3820, change: -30, change_percentage: -0.78 },
   { symbol: 'ASII', price: 5225, change: 50, change_percentage: 0.97 },
   { symbol: 'BUMI', price: 193, change: -9, change_percentage: -4.46 },
-  { symbol: 'SRSN', price: 129, change: 13, change_percentage: 11.21, bandar_status: 'AKUMULASI MASIF' },
-  { symbol: 'SINI', price: 16900, change: 100, change_percentage: 0.60, bandar_status: 'AKUMULASI NORMAL' },
-  { symbol: 'CUAN', price: 925, change: -20, change_percentage: -2.12 },
   { symbol: 'AMMN', price: 4680, change: -220, change_percentage: -4.49 },
   { symbol: 'GOTO', price: 78, change: 2, change_percentage: 2.63, bandar_status: 'AKUMULASI NORMAL' },
   { symbol: 'ADRO', price: 2850, change: 60, change_percentage: 2.15, bandar_status: 'AKUMULASI MASIF' },
   { symbol: 'MDKA', price: 2430, change: -40, change_percentage: -1.62 },
-  { symbol: 'BRIS', price: 2620, change: 80, change_percentage: 3.15, bandar_status: 'AKUMULASI MASIF' }
+  { symbol: 'BRIS', price: 2620, change: 80, change_percentage: 3.15, bandar_status: 'AKUMULASI MASIF' },
+  { symbol: 'ANTM', price: 1540, change: 45, change_percentage: 3.01, bandar_status: 'AKUMULASI MASIF' },
+  { symbol: 'INCO', price: 3980, change: 70, change_percentage: 1.79, bandar_status: 'AKUMULASI NORMAL' },
+  { symbol: 'UNTR', price: 24800, change: 350, change_percentage: 1.43 },
+  { symbol: 'ICBP', price: 11200, change: 150, change_percentage: 1.36 },
+  { symbol: 'INDF', price: 7050, change: 50, change_percentage: 0.71 },
+  { symbol: 'KLBF', price: 1680, change: -15, change_percentage: -0.88 },
+  { symbol: 'PGAS', price: 1530, change: 20, change_percentage: 1.32, bandar_status: 'AKUMULASI NORMAL' },
+  { symbol: 'PTBA', price: 2540, change: 30, change_percentage: 1.20 }
 ];
 
 export const LiveStockTicker: React.FC<LiveStockTickerProps> = ({
@@ -43,10 +49,13 @@ export const LiveStockTicker: React.FC<LiveStockTickerProps> = ({
   stocks,
   onSelectStock
 }) => {
-  // Format items from scanned stocks or fallback list
+  // Format items strictly from IDX80 stocks or fallback IDX80 list
   const tickerItems = useMemo(() => {
-    if (stocks && stocks.length > 0) {
-      return stocks.map(s => {
+    // Enforce IDX80 whitelist: only stocks present in IDX80 universe are displayed
+    const idx80Stocks = (stocks || []).filter(s => isIDX80Stock(s.symbol));
+
+    if (idx80Stocks.length > 0) {
+      return idx80Stocks.map(s => {
         const cleanSymbol = s.symbol.replace('.JK', '');
         const price = s.price || 0;
         const changePct = s.change_percentage || 0;
@@ -97,7 +106,7 @@ export const LiveStockTicker: React.FC<LiveStockTickerProps> = ({
 
   return (
     <aside
-      aria-label="Live Saham Running Ticker"
+      aria-label="Live Saham IDX80 Running Ticker"
       className="fixed bottom-14 md:bottom-0 left-0 right-0 z-40 bg-[#070D1B]/95 border-t border-slate-800/90 backdrop-blur-xl h-8 sm:h-9 flex items-center overflow-hidden shadow-2xl shadow-black select-none"
     >
       {/* ===================================================================== */}
@@ -110,7 +119,7 @@ export const LiveStockTicker: React.FC<LiveStockTickerProps> = ({
           <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
         </span>
         <span className="text-[9px] sm:text-[10px] font-mono font-black tracking-wider text-emerald-400 uppercase hidden xs:inline">
-          LIVE
+          LIVE IDX80
         </span>
 
         {/* IHSG Mini Chip */}
@@ -189,7 +198,7 @@ export const LiveStockTicker: React.FC<LiveStockTickerProps> = ({
                 {item.isAccum && (
                   <span
                     className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded text-[9px] font-black uppercase tracking-tight bg-gradient-to-r from-purple-500/25 to-pink-500/25 text-purple-300 border border-purple-500/40 shadow-sm shadow-purple-500/20"
-                    title="Saham terdeteksi sedang diakumulasi oleh Bandar / Institusi"
+                    title="Saham IDX80 terdeteksi sedang diakumulasi oleh Bandar / Institusi"
                   >
                     <Flame className="w-2 h-2 text-purple-400 fill-purple-400" />
                     <span className="hidden xs:inline">AKUMULASI</span>
@@ -205,12 +214,19 @@ export const LiveStockTicker: React.FC<LiveStockTickerProps> = ({
       </div>
 
       {/* ===================================================================== */}
-      {/* 3. RIGHT PINNED SECTION: MARKET STATUS */}
+      {/* 3. RIGHT PINNED SECTION: IDX80 UNIVERSE BADGE */}
       {/* ===================================================================== */}
-      <div className="hidden lg:flex shrink-0 items-center gap-1.5 px-3 h-full bg-[#0B132B]/95 border-l border-slate-800/90 text-[10px] font-mono text-slate-400 z-20">
+      <div
+        title="Live Running Ticker Khusus Konstituen Indeks IDX80 BEI"
+        className="hidden lg:flex shrink-0 items-center gap-1.5 px-3 h-full bg-[#0B132B]/95 border-l border-slate-800/90 text-[10px] font-mono text-slate-400 z-20"
+      >
         <Activity className="w-3 h-3 text-[#22C7F0]" />
-        <span className="text-slate-300 font-semibold tracking-wide">PASAR REGULER BEI</span>
+        <span className="text-slate-200 font-bold tracking-wide">IDX80 BEI</span>
+        <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-[#22C7F0] border border-cyan-500/20 font-bold text-[9px]">
+          80 SAHAM
+        </span>
       </div>
     </aside>
   );
 };
+

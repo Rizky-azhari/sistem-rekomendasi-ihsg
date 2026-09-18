@@ -107,7 +107,7 @@ export const ScreenerPage: React.FC<ScreenerPageProps> = ({
             </span>
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Penyaringan otomatis saham IHSG dengan 5 aturan teknikal dan scoring komposit kuantitatif.
+            Penyaringan saham IDX80 berbasis sinyal teknikal, volume, dan akumulasi bandar.
           </p>
         </div>
       </div>

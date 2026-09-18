@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   TrendingUp,
   Search,
@@ -14,6 +14,7 @@ import {
 import type { IHSGMarketData } from '../../types/stock';
 import { useAuth } from '../../context/AuthContext';
 import { AuthModal } from '../common/AuthModal';
+import { searchIDX80Stocks } from '../../constants/idx80';
 
 export type NavTab = 'dashboard' | 'scanner' | 'detail' | 'reports' | 'admin';
 
@@ -38,11 +39,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
-  const filteredStocks = stockList.filter(
-    s =>
-      s.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Intelligent ranking search: strictly prioritizes IDX80 stock tickers over generic corporate words
+  const filteredStocks = useMemo(() => {
+    return searchIDX80Stocks(stockList, searchTerm);
+  }, [stockList, searchTerm]);
+
 
   return (
     <>

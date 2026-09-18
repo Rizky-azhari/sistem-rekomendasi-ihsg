@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Navbar, type NavTab } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
 import { LiveStockTicker } from './components/layout/LiveStockTicker';
+import { IDX80_DEFAULT_CATALOG } from './constants/idx80';
 import { api } from './api/client';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -106,24 +107,19 @@ function MainAppContent() {
   const [isDetailLoading, setIsDetailLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Dynamic Full Universe Stock list
-  const [allStocksList, setAllStocksList] = useState<Array<{ symbol: string; name: string }>>([
-    { symbol: 'BBCA.JK', name: 'Bank Central Asia Tbk' },
-    { symbol: 'BBRI.JK', name: 'Bank Rakyat Indonesia Tbk' },
-    { symbol: 'BMRI.JK', name: 'Bank Mandiri Tbk' },
-    { symbol: 'BBNI.JK', name: 'Bank Negara Indonesia Tbk' },
-    { symbol: 'TLKM.JK', name: 'Telkom Indonesia Tbk' },
-    { symbol: 'ASII.JK', name: 'Astra International Tbk' },
-    { symbol: 'GOTO.JK', name: 'GoTo Gojek Tokopedia Tbk' }
-  ]);
+  // Dynamic Full Universe Stock list (Initialized with all 80 IDX80 constituents)
+  const [allStocksList, setAllStocksList] = useState<Array<{ symbol: string; name: string }>>(() =>
+    IDX80_DEFAULT_CATALOG.map(s => ({ symbol: s.symbol, name: s.name }))
+  );
 
   // Fetch full universe stocks list for global search
   const loadUniverseCatalog = useCallback(async () => {
     try {
       const resp = await api.getStocks();
-      if (resp && resp.stocks && resp.stocks.length > 0) {
+      const rawList = Array.isArray(resp) ? resp : (resp?.stocks || resp?.data || []);
+      if (rawList.length > 0) {
         setAllStocksList(
-          resp.stocks.map((s: any) => ({
+          rawList.map((s: any) => ({
             symbol: s.symbol,
             name: s.name || s.company_name || s.symbol
           }))

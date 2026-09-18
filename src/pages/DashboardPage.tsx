@@ -249,7 +249,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               <span className="text-xs font-semibold text-slate-400">Emiten</span>
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">
-              Dipindai otomatis universe konstituen IDX80.
+              Konstituen aktif indeks IDX80 BEI.
             </p>
           </div>
 
@@ -326,7 +326,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* SECTION 3: SCANNER PROGRESS (Compact Bar) */}
+      {/* SECTION 3: SCANNER STATUS BAR */}
       {/* ========================================================================= */}
       <div className="p-3.5 sm:p-4 rounded-2xl bg-[#111827]/90 border border-[#22C7F0]/30 shadow-lg relative overflow-hidden backdrop-blur-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -337,18 +337,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs sm:text-sm font-bold text-white font-mono">
-                  Scanning: {scanningProgress?.current_index || totalAnalyzed || 80} / {scanningProgress?.total_stocks || 80} Saham
+                  Status Pemindaian: {scanningProgress?.current_index || totalAnalyzed || 80} / {scanningProgress?.total_stocks || 80} Saham
                 </span>
                 <span className={`text-[9px] font-mono px-2 py-0.2 rounded-full font-bold ${
                   scanningProgress?.is_running
                     ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 animate-pulse'
                     : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                 }`}>
-                  {scanningProgress?.is_running ? 'PROSES SCAN' : '100% SELESAI'}
+                  {scanningProgress?.is_running ? 'MEMINDAI' : 'SELESAI'}
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Last Scan: {lastUpdated} • Multi-threading Batch Screener
+                Pembaruan: {lastUpdated} • Batch Engine
               </p>
             </div>
           </div>
@@ -386,44 +386,65 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* SECTION 4: RECOMMENDATION OVERVIEW (Visual Chart) */}
+      {/* SECTION 4: RECOMMENDATION OVERVIEW */}
       {/* ========================================================================= */}
       <div className="p-4 sm:p-5 rounded-2xl bg-[#111827]/90 border border-slate-800/90 shadow-xl backdrop-blur-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3.5">
           <div className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-[#22C7F0]" />
             <h3 className="text-sm sm:text-base font-bold text-white tracking-wide">
-              Overview Distribusi Rekomendasi
+              Distribusi Rekomendasi
             </h3>
           </div>
           <span className="text-xs text-slate-400 font-mono">
-            Total {totalAnalyzed || 80} Emiten Terklasifikasi
+            {totalAnalyzed || 80} Saham IDX80
           </span>
         </div>
 
-        {/* Visual Cards Breakdown */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
-          {distributionData.map(item => (
-            <div
-              key={item.name}
-              className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between"
-            >
-              <div>
-                <span className="text-[11px] text-slate-400 font-medium">{item.name}</span>
-                <div className="text-base sm:text-lg font-black font-mono text-white">
-                  {item.count}
-                </div>
-              </div>
-              <span
-                className="w-3 h-3 rounded-full shrink-0"
-                style={{ backgroundColor: item.color }}
-              />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+            <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+              <span>Strong Buy</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
             </div>
-          ))}
+            <div className="text-xl font-bold font-mono text-emerald-400">
+              {strongBuyStocks.length}
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+            <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+              <span>Buy</span>
+              <span className="w-2 h-2 rounded-full bg-cyan-400" />
+            </div>
+            <div className="text-xl font-bold font-mono text-cyan-400">
+              {buyStocks.length}
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+            <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+              <span>Hold</span>
+              <span className="w-2 h-2 rounded-full bg-amber-400" />
+            </div>
+            <div className="text-xl font-bold font-mono text-amber-400">
+              {holdStocks.length}
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+            <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+              <span>Sell</span>
+              <span className="w-2 h-2 rounded-full bg-rose-400" />
+            </div>
+            <div className="text-xl font-bold font-mono text-rose-400">
+              {sellStocks.length}
+            </div>
+          </div>
         </div>
 
         {/* Horizontal Visual Stack Bar */}
-        <div className="w-full bg-slate-950 rounded-xl h-4 p-0.5 border border-slate-800 flex overflow-hidden">
+        <div className="w-full bg-slate-950 rounded-xl h-2.5 p-0.5 border border-slate-800 flex overflow-hidden mt-3">
           {totalAnalyzed > 0 && distributionData.map(item => {
             const pct = (item.count / totalAnalyzed) * 100;
             if (pct <= 0) return null;
@@ -432,7 +453,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 key={item.name}
                 title={`${item.name}: ${item.count} (${pct.toFixed(1)}%)`}
                 style={{ width: `${pct}%`, backgroundColor: item.color }}
-                className="h-full first:rounded-l-lg last:rounded-r-lg transition-all"
+                className="h-full first:rounded-l last:rounded-r transition-all"
               />
             );
           })}
@@ -440,12 +461,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* SECTION 4B: SAHAM SEDANG DIAKUMULASI BANDAR (Bandarmology Tracker) */}
+      {/* SECTION 5: BANDARMOLOGY TRACKER */}
       {/* ========================================================================= */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-[#111827]/95 to-[#0F172A]/90 border border-purple-500/30 shadow-xl backdrop-blur-xl relative overflow-hidden">
-        {/* Glow ambient background effect */}
-        <div className="pointer-events-none absolute -top-12 -right-12 w-56 h-56 bg-purple-500/10 rounded-full blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-12 -left-12 w-56 h-56 bg-cyan-500/10 rounded-full blur-3xl" />
+      <div className="p-4 sm:p-5 rounded-2xl bg-[#111827]/90 border border-purple-500/30 shadow-xl shadow-purple-950/20 backdrop-blur-xl relative overflow-hidden">
+        {/* Subtle decorative glow */}
+        <div className="absolute top-0 right-1/4 w-72 h-36 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Section Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 relative z-10">
@@ -455,14 +475,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 <Flame className="w-4 h-4 text-white fill-white animate-pulse" />
               </div>
               <h3 className="text-sm sm:text-base font-extrabold text-white tracking-wide">
-                Saham Sedang Diakumulasi Bandar
+                Saham Diakumulasi Bandar
               </h3>
               <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40">
                 BANDARMOLOGY
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              Deteksi otomatis anomali volume (*Volume Spread Analysis*), aliran dana institusi (*Smart Money Inflow*), dan serapan akumulasi harga.
+              Saham IDX80 dengan lonjakan volume dan indikasi akumulasi modal besar.
             </p>
           </div>
 
@@ -592,140 +612,154 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* SECTION 5: TOP RECOMMENDATION (Desktop: Table, Mobile: Card) */}
       {/* ========================================================================= */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-[#111827]/90 border border-slate-800/90 shadow-xl backdrop-blur-xl">
-        <div className="flex items-center justify-between mb-4">
+      {/* SECTION 5: TOP REKOMENDASI SAHAM PILIHAN (Card Grid Identik dengan Bandar) */}
+      {/* ========================================================================= */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-[#111827]/90 border border-slate-800/90 shadow-xl backdrop-blur-xl relative overflow-hidden">
+        {/* Subtle decorative glow */}
+        <div className="absolute top-0 right-1/4 w-72 h-36 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Section Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 relative z-10">
           <div>
-            <h3 className="text-sm sm:text-base font-bold text-white tracking-wide flex items-center gap-2">
-              <Target className="w-4 h-4 text-emerald-400" />
-              Top Rekomendasi Saham Pilihan
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Saham dengan skor komposit tertinggi berdasarkan 5 faktor screener kuantitatif.
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-lg bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center shadow-md shadow-emerald-500/25">
+                <Target className="w-4 h-4 text-white animate-pulse" />
+              </div>
+              <h3 className="text-sm sm:text-base font-extrabold text-white tracking-wide">
+                Top Rekomendasi Saham
+              </h3>
+              <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                REKOMENDASI
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Saham pilihan dengan sinyal teknikal dan rasio risk-to-reward terbaik.
             </p>
           </div>
 
-          <button
-            onClick={onNavigateToScanner}
-            className="flex items-center gap-1.5 text-xs text-[#22C7F0] hover:text-cyan-300 font-bold transition-colors cursor-pointer"
-          >
-            <span>Lihat Semua Scanner</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {/* Quick summary pill counters */}
+            <div className="flex items-center gap-1.5 text-xs font-mono">
+              <span className="px-2.5 py-1 rounded-xl bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 font-bold">
+                ⭐ Strong Buy: {strongBuyStocks.length}
+              </span>
+              <span className="px-2.5 py-1 rounded-xl bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 font-bold">
+                🎯 Buy: {buyStocks.length}
+              </span>
+            </div>
+
+            <button
+              onClick={onNavigateToScanner}
+              className="flex items-center gap-1 px-3 py-1 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 hover:text-emerald-200 text-xs font-bold transition-all cursor-pointer"
+            >
+              <span>Lihat Semua Scanner</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
-        {/* Desktop View: Responsive Table */}
-        <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-800">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-900/90 text-slate-400 font-mono uppercase text-[11px] border-b border-slate-800">
-              <tr>
-                <th className="py-3 px-3.5">Kode</th>
-                <th className="py-3 px-3.5">Nama Perusahaan</th>
-                <th className="py-3 px-3.5 text-right">Harga</th>
-                <th className="py-3 px-3.5 text-center">Score</th>
-                <th className="py-3 px-3.5 text-center">Signal</th>
-                <th className="py-3 px-3.5 text-center">Risk</th>
-                <th className="py-3 px-3.5 text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 font-mono">
-              {topStocks.map((stock) => {
-                const score = Math.round(stock.final_score || stock.composite_score || 0);
-                const isStrong = stock.recommendation === 'STRONG BUY';
-                return (
-                  <tr
-                    key={stock.symbol}
-                    onClick={() => onSelectStock(stock.symbol)}
-                    className="hover:bg-slate-800/50 cursor-pointer transition-colors"
-                  >
-                    <td className="py-3 px-3.5 font-bold text-[#22C7F0]">
-                      {stock.symbol}
-                    </td>
-                    <td className="py-3 px-3.5 text-slate-300 font-sans truncate max-w-[200px]">
-                      {stock.name || stock.symbol}
-                    </td>
-                    <td className="py-3 px-3.5 text-right text-white font-bold">
-                      {formatIDR(stock.price)}
-                    </td>
-                    <td className="py-3 px-3.5 text-center">
-                      <span className="font-extrabold text-slate-100">{score}</span>
-                      <span className="text-[10px] text-slate-500">/100</span>
-                    </td>
-                    <td className="py-3 px-3.5 text-center font-sans">
-                      <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${
-                        isStrong
-                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                          : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
-                      }`}>
-                        {stock.recommendation}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3.5 text-center font-mono text-[11px] text-slate-300">
-                      1:{((1.5 + (stock.trading_setup_score || 50) / 75).toFixed(1))}
-                    </td>
-                    <td className="py-3 px-3.5 text-right font-sans">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelectStock(stock.symbol);
-                        }}
-                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-[#22C7F0] hover:text-slate-950 text-slate-300 text-[11px] font-bold transition-colors cursor-pointer"
+        {/* Stock Cards Grid (Top 6 recommended stocks) */}
+        {topStocks.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 relative z-10">
+            {topStocks.slice(0, 6).map((stock) => {
+              const score = Math.round(stock.final_score || stock.composite_score || 0);
+              const isStrong = stock.recommendation === 'STRONG BUY';
+              const isUp = (stock.change_percentage || 0) >= 0;
+              const rrRatio = (1.5 + (stock.trading_setup_score || 50) / 75).toFixed(1);
+
+              return (
+                <div
+                  key={stock.symbol}
+                  onClick={() => onSelectStock(stock.symbol)}
+                  className="p-3.5 rounded-xl bg-[#0D1527]/90 hover:bg-[#131F38] border border-emerald-500/20 hover:border-emerald-400/50 transition-all cursor-pointer flex flex-col justify-between gap-2.5 group shadow-sm hover:shadow-emerald-500/10 hover:shadow-lg hover:-translate-y-0.5"
+                >
+                  {/* Top Row: Symbol & Recommendation Badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-sm sm:text-base font-mono text-white group-hover:text-[#22C7F0] transition-colors">
+                          {stock.symbol}
+                        </span>
+                        <span
+                          className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tight flex items-center gap-1 ${
+                            isStrong
+                              ? 'bg-gradient-to-r from-emerald-500/30 to-teal-500/30 text-emerald-200 border border-emerald-400/50 shadow-sm shadow-emerald-500/30'
+                              : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                          }`}
+                        >
+                          <Target className="w-2.5 h-2.5 shrink-0" />
+                          {stock.recommendation || 'BUY'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 truncate max-w-[190px] mt-0.5">
+                        {stock.name || stock.symbol}
+                      </p>
+                    </div>
+
+                    <div className="text-right font-mono">
+                      <div className="text-xs sm:text-sm font-black text-white">
+                        {formatIDR(stock.price)}
+                      </div>
+                      <span
+                        className={`text-[10px] font-bold inline-flex items-center gap-0.5 ${
+                          isUp ? 'text-emerald-400' : 'text-rose-400'
+                        }`}
                       >
-                        Detail
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                        {isUp ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+                        {isUp ? '+' : ''}{(stock.change_percentage || 0).toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
 
-        {/* Mobile View: Responsive Cards List */}
-        <div className="md:hidden flex flex-col gap-2.5">
-          {topStocks.map((stock) => {
-            const score = Math.round(stock.final_score || stock.composite_score || 0);
-            const isStrong = stock.recommendation === 'STRONG BUY';
-            return (
-              <div
-                key={stock.symbol}
-                onClick={() => onSelectStock(stock.symbol)}
-                className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 active:scale-[0.99] transition-all cursor-pointer flex flex-col gap-2 shadow-sm"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-black font-mono text-[#22C7F0]">
-                      {stock.symbol}
+                  {/* Middle Row: Risk-Reward & Composite Score Progress */}
+                  <div className="space-y-1.5 pt-1.5 border-t border-slate-800/80 text-[11px] font-mono">
+                    <div className="flex items-center justify-between text-slate-400">
+                      <span className="flex items-center gap-1 text-[10px]">
+                        <Zap className="w-3 h-3 text-emerald-400" />
+                        Risk-to-Reward
+                      </span>
+                      <span className="font-bold text-emerald-300">
+                        1:{rrRatio} (R:R)
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-slate-400">
+                      <span className="text-[10px]">Composite Score</span>
+                      <span className="font-bold text-emerald-300">{score}/100</span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          isStrong
+                            ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                            : 'bg-gradient-to-r from-cyan-500 to-emerald-400'
+                        }`}
+                        style={{ width: `${Math.min(score, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Card Footer: Detail Link */}
+                  <div className="flex items-center justify-between text-[10px] pt-1 text-slate-400 font-sans">
+                    <span className="font-mono text-[9px] text-slate-500 uppercase">
+                      {stock.sector || 'IDX80'} • Skor {score}
                     </span>
-                    <span className={`text-[9px] font-extrabold px-2 py-0.2 rounded-full border ${
-                      isStrong
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                        : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
-                    }`}>
-                      {stock.recommendation}
+                    <span className="text-emerald-400 group-hover:text-emerald-300 font-bold flex items-center gap-0.5">
+                      Analisis <ArrowRight className="w-3 h-3" />
                     </span>
                   </div>
-                  <span className="text-sm font-black font-mono text-white">
-                    {formatIDR(stock.price)}
-                  </span>
                 </div>
-
-                <p className="text-[11px] text-slate-400 truncate">
-                  {stock.name || stock.symbol}
-                </p>
-
-                <div className="flex items-center justify-between text-[11px] font-mono pt-2 border-t border-slate-800/80 text-slate-400">
-                  <span>Score: <strong className="text-white">{score}</strong>/100</span>
-                  <span>Risk-Reward: <strong className="text-emerald-400">1:{((1.5 + (stock.trading_setup_score || 50) / 75).toFixed(1))}</strong></span>
-                  <span className="text-[#22C7F0] font-bold flex items-center gap-0.5">
-                    Detail <ArrowRight className="w-3 h-3" />
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-6 rounded-xl bg-slate-950/60 border border-slate-800 text-center text-xs text-slate-400 font-mono">
+            Memuat rekomendasi saham pilihan IDX80...
+          </div>
+        )}
       </div>
 
     </div>

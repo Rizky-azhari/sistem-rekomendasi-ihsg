@@ -26,3 +26,6 @@ export const SIGNAL_BADGES = {
   'SELL': { bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/20' },
   'STRONG SELL': { bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/20' },
 } as const;
+
+export * from './idx80';
+

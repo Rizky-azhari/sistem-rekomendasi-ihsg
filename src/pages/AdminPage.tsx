@@ -217,7 +217,7 @@ export const AdminPage: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-5 max-w-7xl mx-auto w-full px-3 sm:px-6 py-4 sm:py-6">
-      
+
       {/* Header Banner */}
       <div className="p-4 sm:p-5 rounded-2xl bg-[#111827]/90 border border-indigo-500/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 backdrop-blur-xl">
         <div className="flex items-start sm:items-center gap-3.5">
@@ -252,11 +252,10 @@ export const AdminPage: React.FC = () => {
       {/* Feedback Alert */}
       {feedbackMsg && (
         <div
-          className={`p-3.5 rounded-xl text-xs flex items-center gap-2.5 shadow-md ${
-            feedbackMsg.type === 'success'
+          className={`p-3.5 rounded-xl text-xs flex items-center gap-2.5 shadow-md ${feedbackMsg.type === 'success'
               ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
               : 'bg-rose-500/10 border border-rose-500/30 text-rose-300'
-          }`}
+            }`}
         >
           {feedbackMsg.type === 'success' ? (
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
@@ -271,12 +270,12 @@ export const AdminPage: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="p-3.5 rounded-2xl bg-[#111827]/80 border border-slate-800 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-400 text-[11px]">
-            <span className="font-semibold uppercase tracking-wider">Total User</span>
+            <span className="font-semibold uppercase tracking-wider">Total Pengguna</span>
             <Users className="w-4 h-4 text-[#22C7F0]" />
           </div>
           <div className="my-1">
             <span className="text-2xl font-black font-mono text-white">{users.length}</span>
-            <span className="text-[11px] text-slate-400 ml-1.5">Akun Google</span>
+            <span className="text-[11px] text-slate-400 ml-1.5">Akun Terdaftar</span>
           </div>
           <div className="text-[10px] text-slate-500 font-mono">
             {totalUsers} User • {totalAdmins} Admin
@@ -285,36 +284,36 @@ export const AdminPage: React.FC = () => {
 
         <div className="p-3.5 rounded-2xl bg-[#111827]/80 border border-indigo-500/30 flex flex-col justify-between">
           <div className="flex items-center justify-between text-indigo-300 text-[11px]">
-            <span className="font-semibold uppercase tracking-wider">Admin Aktif</span>
+            <span className="font-semibold uppercase tracking-wider">Administrator</span>
             <UserCheck className="w-4 h-4 text-indigo-400" />
           </div>
           <div className="my-1">
             <span className="text-2xl font-black font-mono text-indigo-300">{totalAdmins}</span>
-            <span className="text-[11px] text-slate-400 ml-1.5">Administrator</span>
+            <span className="text-[11px] text-slate-400 ml-1.5">Admin Aktif</span>
           </div>
           <div className="text-[10px] text-indigo-400/80 font-mono">Role: admin</div>
         </div>
 
         <div className="p-3.5 rounded-2xl bg-[#111827]/80 border border-slate-800 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-400 text-[11px]">
-            <span className="font-semibold uppercase tracking-wider">Audit Trail</span>
+            <span className="font-semibold uppercase tracking-wider">Log Aktivitas</span>
             <Activity className="w-4 h-4 text-cyan-400" />
           </div>
           <div className="my-1">
             <span className="text-2xl font-black font-mono text-white">{activities.length || '100+'}</span>
-            <span className="text-[11px] text-slate-400 ml-1.5">Log Event</span>
+            <span className="text-[11px] text-slate-400 ml-1.5">Event Tercatat</span>
           </div>
           <div className="text-[10px] text-slate-500 font-mono">Tabel: activity_logs</div>
         </div>
 
         <div className="p-3.5 rounded-2xl bg-[#111827]/80 border border-slate-800 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-400 text-[11px]">
-            <span className="font-semibold uppercase tracking-wider">Laporan Saham</span>
+            <span className="font-semibold uppercase tracking-wider">Laporan Riset</span>
             <FileText className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="my-1">
             <span className="text-2xl font-black font-mono text-white">{adminReports.length}</span>
-            <span className="text-[11px] text-slate-400 ml-1.5">Riset Tersimpan</span>
+            <span className="text-[11px] text-slate-400 ml-1.5">Dokumen Riset</span>
           </div>
           <div className="text-[10px] text-slate-500 font-mono">Tabel: public.reports</div>
         </div>
@@ -324,35 +323,32 @@ export const AdminPage: React.FC = () => {
       <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-[#111827] border border-slate-800 w-full sm:w-auto overflow-x-auto">
         <button
           onClick={() => setActiveTab('users')}
-          className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'users'
+          className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeTab === 'users'
               ? 'bg-[#22C7F0] text-slate-950 shadow-md shadow-cyan-500/20'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-          }`}
+            }`}
         >
           <Users className="w-3.5 h-3.5" />
-          <span>Kelola Pengguna ({users.length})</span>
+          <span>Pengguna ({users.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('activities')}
-          className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'activities'
+          className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeTab === 'activities'
               ? 'bg-[#22C7F0] text-slate-950 shadow-md shadow-cyan-500/20'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-          }`}
+            }`}
         >
           <Activity className="w-3.5 h-3.5" />
-          <span>Log Audit Trail</span>
+          <span>Log Aktivitas</span>
         </button>
 
         <button
           onClick={() => setActiveTab('reports')}
-          className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'reports'
+          className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeTab === 'reports'
               ? 'bg-[#22C7F0] text-slate-950 shadow-md shadow-cyan-500/20'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-          }`}
+            }`}
         >
           <FileText className="w-3.5 h-3.5" />
           <span>Moderasi Laporan ({adminReports.length})</span>
@@ -367,7 +363,7 @@ export const AdminPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-[#22C7F0]" />
               <h3 className="font-bold text-sm text-white">
-                Daftar Akun Google Terdaftar ({filteredUsers.length} dari {users.length})
+                Daftar total Pengguna {users.length}
               </h3>
             </div>
 
@@ -409,7 +405,7 @@ export const AdminPage: React.FC = () => {
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#060B18] text-slate-400 uppercase font-mono text-[11px] border-b border-slate-800">
                   <tr>
-                    <th className="py-3 px-4">Pengguna Google</th>
+                    <th className="py-3 px-4">Nama Pengguna</th>
                     <th className="py-3 px-4">Email</th>
                     <th className="py-3 px-4 text-center">Peran (Role)</th>
                     <th className="py-3 px-4 text-center">Terdaftar</th>
@@ -457,11 +453,10 @@ export const AdminPage: React.FC = () => {
                             </span>
                           ) : (
                             <span
-                              className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase ${
-                                uRole === 'admin'
+                              className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase ${uRole === 'admin'
                                   ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
                                   : 'bg-cyan-500/15 text-[#22C7F0] border-cyan-500/30'
-                              }`}
+                                }`}
                             >
                               {uRole}
                             </span>
@@ -484,11 +479,10 @@ export const AdminPage: React.FC = () => {
                                 onClick={() => handleToggleRole(u.id, uRole)}
                                 disabled={isSelf}
                                 title={isSelf ? 'Tidak dapat mengubah peran sendiri' : `Ubah role ke ${uRole === 'admin' ? 'USER' : 'ADMIN'}`}
-                                className={`py-1 px-3 rounded-lg text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer border ${
-                                  uRole === 'user'
+                                className={`py-1 px-3 rounded-lg text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer border ${uRole === 'user'
                                     ? 'bg-gradient-to-r from-indigo-600/30 to-blue-600/30 hover:from-indigo-600 hover:to-blue-600 text-indigo-200 hover:text-white border-indigo-500/50 shadow-sm'
                                     : 'bg-slate-800 hover:bg-amber-600/30 text-slate-300 hover:text-amber-300 border-slate-700 hover:border-amber-500/50'
-                                }`}
+                                  }`}
                               >
                                 {uRole === 'user' ? '+ Jadikan ADMIN' : 'Jadikan USER'}
                               </button>
@@ -561,11 +555,10 @@ export const AdminPage: React.FC = () => {
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span
-                          className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
-                            String(act.role).toLowerCase() === 'admin'
+                          className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${String(act.role).toLowerCase() === 'admin'
                               ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
                               : 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/25'
-                          }`}
+                            }`}
                         >
                           {act.role}
                         </span>
