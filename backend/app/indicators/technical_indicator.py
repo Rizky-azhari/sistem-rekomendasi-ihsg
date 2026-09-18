@@ -15,7 +15,7 @@ class TechnicalIndicators:
         """
         Calculate Simple Moving Average (SMA/MA) for a given window.
         """
-        return series.rolling(window=window, min_periods=1).mean().round(2)
+        return pd.Series(series.rolling(window=window, min_periods=1).mean().round(2))
 
     @staticmethod
     def calculate_rsi(series: pd.Series, period: int = 14) -> pd.Series:
@@ -38,10 +38,10 @@ class TechnicalIndicators:
                 avg_loss.iloc[i] = (avg_loss.iloc[i - 1] * (period - 1) + loss.iloc[i]) / period
 
         rs = avg_gain / avg_loss.replace(0, np.nan)
-        rsi = 100.0 - (100.0 / (1.0 + rs))
+        rsi = pd.Series(100.0 - (100.0 / (1.0 + rs)))
 
         # Default fallback for initial periods or NaN
-        return rsi.fillna(50.0).round(2)
+        return pd.Series(rsi.fillna(50.0).round(2))
 
     @staticmethod
     def calculate_volatility(series: pd.Series, window: int = 20, annualized: bool = True) -> pd.Series:
@@ -53,14 +53,14 @@ class TechnicalIndicators:
         vol = pct_returns.rolling(window=window, min_periods=5).std()
         if annualized:
             vol = vol * np.sqrt(252)
-        return vol.fillna(0.0).round(4)
+        return pd.Series(vol.fillna(0.0).round(4))
 
     @staticmethod
     def calculate_average_volume(series: pd.Series, window: int = 20) -> pd.Series:
         """
         Calculate the 20-period Simple Moving Average of Trading Volume.
         """
-        return series.rolling(window=window, min_periods=1).mean().round(2)
+        return pd.Series(series.rolling(window=window, min_periods=1).mean().round(2))
 
     @staticmethod
     def determine_trend(price: float, ma20: Optional[float], ma50: Optional[float], ma200: Optional[float]) -> str:
@@ -108,8 +108,8 @@ class TechnicalIndicators:
         if "Date" in df.columns:
             df = df.sort_values(by="Date").reset_index(drop=True)
 
-        close = df["Close"]
-        volume = df["Volume"] if "Volume" in df.columns else pd.Series(0, index=df.index)
+        close = pd.Series(df["Close"])
+        volume = pd.Series(df["Volume"]) if "Volume" in df.columns else pd.Series(0, index=df.index)
 
         # 1. Moving Averages
         df["MA20"] = cls.calculate_ma(close, window=20)

@@ -1,6 +1,4 @@
 # Routes package init
-from .stock_routes import router as stock_router
-from .recommendation_routes import router as recommendation_router
-from .screener_routes import router as screener_router
+from .ihsg_routes import router as ihsg_router
 
-__all__ = ["stock_router", "recommendation_router", "screener_router"]
+__all__ = ["ihsg_router"]

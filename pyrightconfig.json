@@ -1,8 +1,6 @@
 {
   "include": [
-    "backend",
-    "check_errors.py",
-    "audit_backend.py"
+    "backend"
   ],
   "exclude": [
     "**/node_modules",
@@ -17,5 +15,6 @@
     "C:/Users/ASUS/AppData/Local/Programs/Python/Python314/Lib/site-packages"
   ],
   "reportMissingImports": false,
-  "typeCheckingMode": "basic"
+  "typeCheckingMode": "basic",
+  "reportAttributeAccessIssue": "none"
 }

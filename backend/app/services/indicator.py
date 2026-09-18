@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional
 
 def calculate_ma(series: pd.Series, window: int) -> pd.Series:
     """Calculate Simple Moving Average (SMA/MA) for a given window."""
-    return series.rolling(window=window, min_periods=1).mean().round(2)
+    return pd.Series(series.rolling(window=window, min_periods=1).mean().round(2))
 
 
 def calculate_rsi(series: pd.Series, period: int = 14) -> pd.Series:
@@ -28,11 +28,10 @@ def calculate_rsi(series: pd.Series, period: int = 14) -> pd.Series:
             avg_loss.iloc[i] = (avg_loss.iloc[i - 1] * (period - 1) + loss.iloc[i]) / period
 
     rs = avg_gain / avg_loss.replace(0, np.nan)
-    rsi = 100.0 - (100.0 / (1.0 + rs))
+    rsi = pd.Series(100.0 - (100.0 / (1.0 + rs)))
 
     # Fill NaN values with neutral 50.0
-    rsi = rsi.fillna(50.0).round(2)
-    return rsi
+    return pd.Series(rsi.fillna(50.0).round(2))
 
 
 def calculate_indicators(df: pd.DataFrame) -> pd.DataFrame:
@@ -44,7 +43,7 @@ def calculate_indicators(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     df = df.copy()
-    close = df["Close"]
+    close = pd.Series(df["Close"])
 
     # Calculate Moving Averages
     df["MA20"] = calculate_ma(close, window=20)

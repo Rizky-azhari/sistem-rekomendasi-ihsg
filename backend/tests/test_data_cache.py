@@ -38,6 +38,7 @@ class TestDataCache(unittest.TestCase):
         self.cache.set_history("BBCA.JK", "1y", df)
         retrieved = self.cache.get_history("BBCA.JK", "1y")
         self.assertIsNotNone(retrieved)
+        assert retrieved is not None
         self.assertEqual(len(retrieved), 3)
 
     def test_history_cache_normalization(self):
@@ -46,6 +47,7 @@ class TestDataCache(unittest.TestCase):
         self.cache.set_history("BBCA", "1y", df)
         retrieved = self.cache.get_history("bbca.jk", "1y")
         self.assertIsNotNone(retrieved)
+        assert retrieved is not None
         self.assertEqual(len(retrieved), 3)
 
     def test_cache_miss(self):

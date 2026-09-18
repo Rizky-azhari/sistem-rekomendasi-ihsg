@@ -81,6 +81,7 @@ class TestIDX80Config(unittest.TestCase):
         """Metadata retrieval works with normalized and unnormalized tickers."""
         meta = get_idx80_metadata("bbca")
         self.assertIsNotNone(meta)
+        assert meta is not None
         self.assertIn("Bank Central Asia", meta["company_name"])
 
         meta_none = get_idx80_metadata("INVALID")

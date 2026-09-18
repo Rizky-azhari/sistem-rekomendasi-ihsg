@@ -41,7 +41,7 @@ def evaluate_oversold(df: pd.DataFrame, symbol: str = "") -> Dict[str, Any]:
             avg_loss.iloc[i] = (avg_loss.iloc[i - 1] * 13 + loss.iloc[i]) / 14
 
     rs = avg_gain / avg_loss.replace(0, np.nan)
-    rsi_series = 100.0 - (100.0 / (1.0 + rs))
+    rsi_series = pd.Series(100.0 - (100.0 / (1.0 + rs)))
     rsi = float(rsi_series.iloc[-1]) if pd.notna(rsi_series.iloc[-1]) else 50.0
     rsi = round(rsi, 2)
 

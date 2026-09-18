@@ -187,7 +187,7 @@ def get_historical_data(symbol: str, period: str = "1y", interval: str = "1d") -
 
         # Store in cache
         idx80_cache.set_history(sym, period, df)
-        return df
+        return pd.DataFrame(df)
 
     except IDX80ValidationError:
         raise
@@ -244,17 +244,17 @@ def batch_download_idx80(
             progress=False
         )
 
-        if raw.empty:
+        if raw is None or raw.empty:
             print("[YahooService] Batch download returned empty DataFrame.")
             return results
 
         for ticker in uncached_tickers:
             try:
                 if len(uncached_tickers) == 1:
-                    ticker_df = raw.copy()
+                    ticker_df = pd.DataFrame(raw).copy()
                 else:
-                    if ticker in raw.columns.get_level_values(0):
-                        ticker_df = raw[ticker].copy()
+                    if hasattr(raw, "columns") and ticker in raw.columns.get_level_values(0):
+                        ticker_df = pd.DataFrame(raw[ticker]).copy()
                     else:
                         continue
 
@@ -278,8 +278,8 @@ def batch_download_idx80(
                 if "Volume" in ticker_df.columns:
                     ticker_df["Volume"] = ticker_df["Volume"].fillna(0).astype(int)
 
-                results[ticker] = ticker_df
-                idx80_cache.set_history(ticker, period, ticker_df)
+                results[ticker] = pd.DataFrame(ticker_df)
+                idx80_cache.set_history(ticker, period, results[ticker])
 
             except Exception as e:
                 print(f"[YahooService] Error processing batch data for {ticker}: {e}")
@@ -306,7 +306,7 @@ def batch_download_idx80(
                         df["Low"] = df["Low"].round(2)
                         df["Close"] = df["Close"].round(2)
                         df["Volume"] = df["Volume"].astype(int)
-                        results[ticker] = df
+                        results[ticker] = pd.DataFrame(df)
                         idx80_cache.set_history(ticker, period, df)
                 except Exception:
                     pass

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../services/stockService';
+import { api } from '../api/client';
 import type { ScreenerResultItem } from '../types/stock';
 
 /**

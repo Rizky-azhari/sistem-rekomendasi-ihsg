@@ -3,13 +3,8 @@ import sys
 from pathlib import Path
 from typing import Optional, Any
 from dotenv import load_dotenv
-try:
-    from sqlalchemy import create_engine  # type: ignore
-    from sqlalchemy.orm import sessionmaker, declarative_base  # type: ignore
-except ImportError:
-    create_engine = None  # type: ignore
-    sessionmaker = None  # type: ignore
-    declarative_base = lambda: None  # type: ignore
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
 
 # Add backend directory to sys.path so this file can be executed directly from anywhere
 BACKEND_DIR = str(Path(__file__).resolve().parent.parent.parent)
@@ -46,9 +41,9 @@ def resolve_database_url(url: str) -> str:
 # SQLAlchemy engine & session for Supabase PostgreSQL
 DATABASE_URL = resolve_database_url(settings.DATABASE_URL or os.getenv("DATABASE_URL", ""))
 
-engine = None
-SessionLocal = None
-Base = declarative_base()
+engine: Optional[Any] = None
+SessionLocal: Optional[Any] = None
+Base: Any = declarative_base()
 
 # Initialize Supabase Python Client (REST API)
 supabase_client: Optional[Any] = None
@@ -129,7 +124,7 @@ def init_db():
     except ImportError:
         import backend.app.models.stock_model  # noqa: F401
 
-    if engine is not None:
+    if engine is not None and hasattr(Base, "metadata"):
         try:
             Base.metadata.create_all(bind=engine)
             print("[DB] Tables created/verified successfully on PostgreSQL.")

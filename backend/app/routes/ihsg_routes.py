@@ -339,7 +339,7 @@ def calculate_recommendation_from_scores(input_data: ScreenerScoreInput):
             "oversold": input_data.oversold,
             "trading_setup": input_data.trading_setup
         }
-        result = RecommendationEngine.evaluate(scores=scores, symbol=input_data.symbol)
+        result = RecommendationEngine.evaluate(scores=scores, symbol=input_data.symbol or "IDX")
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gagal mengkalkulasi rekomendasi: {str(e)}")

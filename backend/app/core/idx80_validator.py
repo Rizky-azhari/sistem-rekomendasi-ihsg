@@ -8,7 +8,7 @@ Flow:
     User Request → IDX80 Validation → Approved Ticker → Yahoo Finance → Data Processing
 """
 
-from typing import List
+from typing import List, Optional
 from fastapi import HTTPException
 
 from app.config.idx80_tickers import is_idx80, normalize_ticker, get_all_idx80_tickers
@@ -74,7 +74,7 @@ def validate_ticker_safe(symbol: str) -> tuple:
     return normalized, is_idx80(normalized)
 
 
-def validate_ticker_optional(symbol: str = None) -> str:
+def validate_ticker_optional(symbol: Optional[str] = None) -> Optional[str]:
     """Validates ticker if provided; returns None if None or empty string."""
     if not symbol or not str(symbol).strip():
         return None

@@ -1,9 +1,9 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from app.services.yahoo import get_historical_data, get_stock_info, normalize_symbol
 from app.services.indicator import calculate_indicators, extract_latest_indicators
 
 
-def determine_trend(price: float, ma20: float, ma50: float, ma200: float) -> str:
+def determine_trend(price: Optional[float], ma20: Optional[float], ma50: Optional[float], ma200: Optional[float]) -> str:
     """
     Determine the technical market trend based on price and moving average alignments.
     """
@@ -84,11 +84,11 @@ def perform_stock_analysis(symbol: str, period: str = "1y") -> Dict[str, Any]:
 
     # 4. Determine Simple Recommendation Signal
     signal = "HOLD"
-    if "Uptrend" in trend and rsi and rsi < 70:
+    if "Uptrend" in trend and rsi is not None and rsi < 70:
         signal = "BUY" if rsi > 45 else "STRONG BUY"
-    elif "Downtrend" in trend or (rsi and rsi > 80):
-        signal = "SELL" if rsi > 70 else "STRONG SELL"
-    elif rsi and rsi < 30:
+    elif "Downtrend" in trend or (rsi is not None and rsi > 80):
+        signal = "SELL" if (rsi is not None and rsi > 70) else "STRONG SELL"
+    elif rsi is not None and rsi < 30:
         signal = "OVERSOLD (Potential Reversal)"
 
     return {

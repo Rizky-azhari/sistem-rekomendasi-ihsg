@@ -99,7 +99,7 @@ class StockUniverseManager:
                     if records and len(records) > 10:
                         stocks = []
                         for r in records:
-                            sym = normalize_ticker(r.ticker)
+                            sym = normalize_ticker(str(r.ticker))
                             stocks.append({
                                 "symbol": sym,
                                 "code": sym.replace(".JK", ""),
@@ -159,14 +159,15 @@ class StockUniverseManager:
         updated = 0
 
         # Ensure database table exists
-        try:
-            Base.metadata.create_all(bind=engine, tables=[IDX80Stock.__table__], checkfirst=True)
-        except Exception as e:
-            print(f"[StockUniverse] Note on table ensure: {e}")
+        if engine is not None and hasattr(Base, "metadata"):
+            try:
+                Base.metadata.create_all(bind=engine, tables=[IDX80Stock.__table__], checkfirst=True)
+            except Exception as e:
+                print(f"[StockUniverse] Note on table ensure: {e}")
 
         try:
             with Session(engine) as session:
-                existing_records = {u.ticker: u for u in session.query(IDX80Stock).all()}
+                existing_records: Dict[str, Any] = {str(u.ticker): u for u in session.query(IDX80Stock).all()}
 
                 for item in stocks:
                     ticker = item["ticker"]

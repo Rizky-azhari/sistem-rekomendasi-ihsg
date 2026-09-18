@@ -91,7 +91,7 @@ async def get_current_user(
                 profile = {
                     "id": str(row["id"]),
                     "email": row.get("email") or email,
-                    "full_name": row.get("full_name") or email.split("@")[0],
+                    "full_name": row.get("full_name") or (email.split("@")[0] if email else "User"),
                     "avatar_url": row.get("avatar_url") or "",
                     "role": str(row.get("role") or "user").lower()
                 }
@@ -110,7 +110,7 @@ async def get_current_user(
                     profile = {
                         "id": str(row[0]),
                         "email": row[1],
-                        "full_name": row[2] or row[1].split("@")[0],
+                        "full_name": row[2] or (row[1].split("@")[0] if row[1] else "User"),
                         "avatar_url": row[3] or "",
                         "role": (row[4] or "user").lower()
                     }

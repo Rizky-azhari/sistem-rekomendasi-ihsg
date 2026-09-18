@@ -317,6 +317,8 @@ def list_activities(
             query_sql += " WHERE action = :action"
             params["action"] = action
         query_sql += " ORDER BY created_at DESC LIMIT :limit"
+        if not engine:
+            return []
 
         with engine.connect() as conn:
             rows = conn.execute(text(query_sql), params).fetchall()
@@ -350,6 +352,9 @@ def list_all_reports_for_admin(current_admin: Dict[str, Any] = Depends(require_r
     [ADMIN ONLY] Melihat Laporan: Menampilkan seluruh laporan yang dibuat oleh semua pengguna.
     """
     reports = []
+    if not engine:
+        return []
+
     try:
         with engine.connect() as conn:
             rows = conn.execute(

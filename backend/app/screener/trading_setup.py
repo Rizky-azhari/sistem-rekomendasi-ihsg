@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from typing import Dict, Any
 
 
@@ -54,7 +55,7 @@ def evaluate_trading_setup(df: pd.DataFrame, symbol: str = "") -> Dict[str, Any]
 
     # 3. Target Price (Resistance) calculation:
     # Target 1 = Recent 20-day / 50-day swing high or multiple of risk
-    recent_high = float(high.iloc[-50:].max()) if len(high) >= 50 else float(high.max())
+    recent_high = float(high.iloc[-50:].max()) if len(high) >= 50 else float(high.max())  # type: ignore
     
     # If recent high is above current price by a healthy margin, use it, else project 2x to 3x risk
     if recent_high > current_price and (recent_high - current_price) >= (risk * 1.5):

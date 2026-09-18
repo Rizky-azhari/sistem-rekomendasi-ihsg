@@ -1,5 +1,5 @@
 # Indicators package init
-from .technical import calculate_technical_indicators
+from app.engine.indicators import calculate_technical_indicators
 from .technical_indicator import TechnicalIndicators, calculate_technical_summary
 
 __all__ = [

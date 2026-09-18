@@ -1,196 +1,207 @@
 # 🇮🇩 IHSG TERMINAL PRO
-### Smart Stock Recommendation & Decision Support System (IDX All-Stock Universe)
+### Smart Stock Recommendation & Decision Support System (IDX80 Index)
 
-**IHSG Terminal Pro** adalah platform analitika pasar modal Indonesia berbasis kecerdasan komputasi (*Decision Support System*) dan *quantitative screener* yang memindai seluruh emiten aktif yang terdaftar di **Bursa Efek Indonesia (BEI / IDX)** secara dinamis.
+**IHSG Terminal Pro** adalah platform analitika kuantitatif pasar modal Indonesia berbasis *Decision Support System (DSS)* yang memindai dan menganalisis 80 saham paling likuid di **Bursa Efek Indonesia (BEI / IDX)** yang tergabung dalam indeks **IDX80**.
 
-Platform ini mengintegrasikan **FastAPI backend (Python)**, **PostgreSQL (Supabase)**, **Google OAuth Authentication**, serta antarmuka modern **React (Vite) + Tailwind CSS + Recharts** dengan pendekatan *Mobile First* dan dukungan *Progressive Web App (PWA)*.
+Platform ini menggabungkan **FastAPI (Python)**, **PostgreSQL (Supabase)**, **Google OAuth**, serta antarmuka modern **React (Vite) + Tailwind CSS + Recharts** dengan pendekatan *Mobile First* dan dukungan *Progressive Web App (PWA)*.
 
 ---
 
 ## 🌟 Fitur Utama
 
-1. **IDX All-Stock Dynamic Universe (950+ Emiten)**:
-   - Mengambil data seluruh emiten aktif Indonesia secara dinamis dari database Supabase PostgreSQL (`stock_universe`), dengan fallback bertingkat (API IDX resmi -> mirror data -> lokal).
-   - Format standar Yahoo Finance: `BBCA.JK`, `BBRI.JK`, `TLKM.JK`, dll.
+1. **IDX80 Constituent Stock Universe (80 Emiten Terlikuid)**:
+   - Evaluasi eksklusif pada 80 saham berkapitalisasi pasar dan likuiditas transaksi tinggi di Bursa Efek Indonesia.
+   - Format standar Yahoo Finance: `BBCA.JK`, `BBRI.JK`, `BMRI.JK`, `TLKM.JK`, `ASII.JK`, dll.
+   - Dilengkapi *IDX80 Validation Layer* yang menolak emiten di luar whitelist demi efisiensi query dan mitigasi *rate limit*.
 
-2. **5-Factor Rule-Based Screener Engine**:
+2. **5-Factor Quantitative Screener Engine**:
    - **Momentum Screener**: `Close > MA20` & `Volume > Volume Rata-rata 20 Hari`.
    - **Trend Screener**: `MA20 > MA50 > MA200` (Strong Bullish Alignment).
    - **Oversold Screener**: `RSI(14) < 35` & Harga mendekati Support area.
    - **Breakout Screener**: `Close > Highest High 20 Hari`.
-   - **Trading Setup Screener**: Evaluasi rasio Risk-Reward $\ge 1:2$.
+   - **Trading Setup Screener**: Evaluasi rasio Risk-to-Reward $\ge 1:2$.
 
-3. **Composite Recommendation Engine**:
+3. **Composite Recommendation Engine (DSS)**:
    $$\text{Final Score} = (\text{Trend} \times 25\%) + (\text{Momentum} \times 25\%) + (\text{Breakout} \times 20\%) + (\text{Oversold} \times 10\%) + (\text{Setup} \times 20\%)$$
    - **85 - 100**: `STRONG BUY`
    - **70 - 84**: `BUY`
    - **50 - 69**: `HOLD`
-   - **< 50**: `SELL`
-   - Dilengkapi narasi alasan rekomendasi otomatis berdasarkan indikator teknikal.
+   - **25 - 49**: `SELL`
+   - **< 25**: `STRONG SELL`
+   - Dilengkapi narasi analisa teknikal otomatis berdasarkan indikator Moving Average, RSI, MACD, dan Bollinger Bands.
 
 4. **Automated Trading Plan Generator**:
    - Menghasilkan rencana eksekusi trading otomatis:
-     - **Buy Area** (rentang harga beli ideal)
-     - **Stop Loss** (proteksi risiko berbasis Support & ATR)
-     - **Take Profit 1, 2, 3** (target bertahap)
+     - **Buy Area** (rentang harga beli ideal berdasarkan support/SMA20)
+     - **Stop Loss** (proteksi risiko berbasis Support & ATR 14)
+     - **Take Profit 1 & 2** (target bertahap berdasarkan proyeksi swing high)
      - **Risk-Reward Ratio** (RR $\ge 1:2$)
 
-5. **Sistem Autentikasi Google OAuth & Role Supabase**:
-   - Login instan satu klik menggunakan Google OAuth melalui Supabase Auth.
-   - **Otomatisasi Role**: Pengguna Google pertama yang mendaftar otomatis menjadi `ADMIN`, pengguna berikutnya otomatis menjadi `USER`.
-   - Proteksi rute halaman `/admin/*` dengan tampilan eksplisit *Access Denied*.
+5. **Sistem Autentikasi Google OAuth & Role-Based Access Control (RBAC)**:
+   - Login instan satu klik menggunakan akun Google melalui Supabase Auth.
+   - **Manajemen Role**: Pengguna pertama otomatis menjadi `ADMIN`, pengguna berikutnya otomatis `USER`.
+   - Proteksi rute halaman `/admin/*` untuk pengawasan log aktivitas pengguna dan manajemen hak akses.
 
 6. **Desain Mobile-First & Dark Trading Terminal**:
    - Palet warna terminal profesional: Background `#060B18`, Surface `#111827`, Primary Cyan `#22C7F0`.
-   - Navigasi adaptif: **Top Navbar** di Desktop & Tablet, **Bottom Navigation Bar** di Mobile.
-   - PWA (*Progressive Web App*) siap install di Android dan iOS.
+   - Navigasi adaptif: **Top Navbar** di Desktop/Tablet, **Bottom Navigation Bar** di Mobile.
+   - PWA (*Progressive Web App*) siap dipasang di layar utama Android dan iOS.
 
 ---
 
-## 🏗️ Arsitektur Sistem
+## 🏗️ Struktur Folder Proyek
 
-```
+```text
 Sistem Rekomendasi IHSG/
+├── api/                             # Entry point serverless Vercel (Mangum Python adapter)
+│   └── index.py
 ├── backend/
 │   ├── app/
-│   │   ├── api/v1/          # Endpoint FastAPI (auth, screening, stocks, admin, reports)
-│   │   ├── core/            # Config, security middleware JWT, role guards
-│   │   ├── database/        # SQLAlchemy engine & Supabase connection
-│   │   ├── engine/          # Batch scanner multi-threading
-│   │   ├── indicators/      # Penghitung MA, RSI, MACD, ATR, Support/Resistance
-│   │   ├── recommendation/  # 5-factor scoring & reasoning generator
-│   │   ├── rule_engine/     # Modul screener (momentum, trend, oversold, breakout, setup)
-│   │   ├── screener/        # Stock screener coordinator
-│   │   ├── trading_plan/    # Generator Buy Area, Stop Loss, TP1-3, RR
-│   │   └── universe/        # Dynamic IDX Universe Manager
-│   ├── data/                # IDX Stock Master Catalog
-│   ├── migrations/          # File SQL skema database PostgreSQL Supabase
-│   ├── main.py              # Entry point server FastAPI
-│   └── requirements.txt     # Dependensi Python
-├── frontend/
-│   ├── public/              # Manifest PWA, service worker, icons
-│   ├── src/
-│   │   ├── api/             # HTTP Client Axios & Supabase SDK
-│   │   ├── components/      # UI Components (Navbar, BottomNav, Charts, Tables)
-│   │   ├── context/         # AuthContext (Google OAuth & Role Session)
-│   │   ├── pages/           # Dashboard, Scanner, Detail, Reports, Admin
-│   │   ├── index.css        # Tailwind CSS & Dark Trading Terminal tokens
-│   │   └── App.tsx          # Router, code-splitting & PWA prompt
-│   ├── package.json         # Dependensi React, Vite, Tailwind CSS, Recharts
-│   └── vercel.json          # Konfigurasi deployment Vercel
-├── .env.example             # Template variabel lingkungan
-└── README.md                # Dokumentasi proyek
+│   │   ├── api/v1/                  # Controller & endpoints REST API (admin, auth, recommendations, reports, screening, stocks)
+│   │   ├── config/                  # Konfigurasi aplikasi & master tickers whitelist IDX80
+│   │   ├── core/                    # Konfigurasi env, keamanan JWT, dan validator IDX80
+│   │   ├── database/                # Inisialisasi koneksi database Supabase & SQLAlchemy
+│   │   ├── engine/                  # Mesin kalkulasi indikator teknikal & DSS rule evaluation
+│   │   ├── middleware/              # Middleware otentikasi role-based access control
+│   │   ├── models/                  # Skema ORM SQLAlchemy (Stock, StockPrice, Recommendation, dll.)
+│   │   ├── schemas/                 # Skema validasi data request/response Pydantic
+│   │   ├── screener/                # 5 strategi screener (trend, momentum, breakout, oversold, setup) & batch scanner
+│   │   ├── services/                # Layanan Yahoo Finance, in-memory caching, email sender, technical analysis
+│   │   ├── trading_plan/            # Generator Buy Area, Stop Loss, TP1-2, dan Risk-Reward Ratio
+│   │   ├── universe/                # Pengelola konstituen IDX80 & sinkronisasi otomatis
+│   │   └── validators/              # Gatekeeper validasi ticker IDX80
+│   ├── migrations/                  # Script SQL skema tabel PostgreSQL Supabase
+│   ├── tests/                       # Unit tests otomatis backend (FastAPI, cache, validator)
+│   ├── main.py                      # Entry point server backend FastAPI lokal
+│   ├── requirements.txt             # Dependensi Python backend
+│   └── render.yaml                  # Konfigurasi deployment Render
+├── src/                             # Source code frontend (React 19 + TypeScript + Vite)
+│   ├── api/                         # HTTP Client Axios terpusat (seluruh endpoint sistem)
+│   ├── assets/                      # Gambar, logo, dan aset statis
+│   ├── components/
+│   │   ├── common/                  # Komponen utilitas & dialog global (AuthModal, ProtectedRoute)
+│   │   ├── layout/                  # Komponen navigasi (Navbar desktop/tablet, BottomNav mobile)
+│   │   ├── chart/                   # Visualisasi grafik interaktif (CandlestickChart, StockChart)
+│   │   ├── dashboard/               # Widget ringkasan IHSG & top performers
+│   │   ├── recommendation/          # Kartu sinyal analisis DSS & Trading Plan
+│   │   └── screener/                # Tabel screener saham IDX80 & panel filter
+│   ├── constants/                   # Nilai konstan UI (timeframe, signal badge styles, defaults)
+│   ├── context/                     # AuthContext (Google OAuth & sesi role pengguna)
+│   ├── hooks/                       # Custom React hooks
+│   ├── pages/                       # Halaman tampilan utama (Dashboard, Screener, Analysis, Admin, Reports)
+│   ├── services/                    # Re-export client API dan Supabase JS client
+│   ├── types/                       # TypeScript interfaces & type definitions
+│   └── utils/                       # Helper murni (formatters Rupiah, styling sinyal)
+├── public/                          # Static assets, PWA manifest, service worker
+├── supabase/
+│   └── migrations/                  # Skema migrasi Supabase PostgreSQL
+├── _unused_review/                  # Arsip aman file tidak terpakai/duplikat untuk ditinjau
+├── ARCHITECTURE.md                  # Dokumentasi teknis arsitektur, diagram modul, & alur data
+├── package.json                     # Dependensi Node.js frontend
+├── pyrightconfig.json               # Konfigurasi Pyright static type checker
+├── vercel.json                      # Konfigurasi deployment terpadu Vercel (SPA + Serverless)
+├── vite.config.ts                   # Konfigurasi Vite, TailwindCSS, dan reverse proxy /api
+└── README.md                        # Dokumentasi utama proyek
 ```
 
 ---
 
-## 🚀 Panduan Instalasi Lokal
+## 🚀 Panduan Menjalankan Proyek
 
 ### Prasyarat
-- Python 3.10+
-- Node.js 18+ & npm
-- Proyek Supabase aktif (URL & Anon/Service Role Key)
-
-### 1. Setup Backend (FastAPI)
-
-```bash
-# Buka folder backend
-cd backend
-
-# Buat virtual environment (opsional namun disarankan)
-python -m venv venv
-venv\Scripts\activate   # Windows
-
-# Install dependensi
-pip install -r requirements.txt
-
-# Buat file .env di folder backend/
-# Isi variabel SUPABASE_URL, SUPABASE_KEY, SUPABASE_DB_URL, JWT_SECRET
-
-# Jalankan server FastAPI
-python -m uvicorn main:app --reload --port 8000
-```
-Backend akan aktif di `http://127.0.0.1:8000` (Dokumentasi Swagger di `http://127.0.0.1:8000/docs`).
-
-### 2. Setup Frontend (React + Vite)
-
-```bash
-# Buka folder frontend
-cd frontend
-
-# Install dependensi
-npm install
-
-# Buat file .env di folder frontend/
-# VITE_SUPABASE_URL=https://your-supabase-id.supabase.co
-# VITE_SUPABASE_KEY=your-anon-key
-# VITE_API_BASE_URL=http://localhost:8000
-
-# Jalankan server frontend development
-npm run dev
-```
-Aplikasi web akan dapat diakses di `http://localhost:5173`.
+- **Node.js**: Versi 18 atau lebih baru & `npm`
+- **Python**: Versi 3.10 atau lebih baru & `pip`
+- Akun / Proyek **Supabase** aktif dengan PostgreSQL database
 
 ---
 
-## 🌐 Panduan Deployment Online
+### 1. Konfigurasi Environment (`.env`)
 
-### 1. Database (Supabase PostgreSQL)
-1. Buat proyek baru di [Supabase](https://supabase.com).
-2. Jalankan skrip migrasi SQL yang berada di `backend/migrations/` secara berurutan pada SQL Editor Supabase:
-   - `init_schema.sql` (tabel `stock_universe`, `screening_results`, `trading_plans`)
-   - `create_profiles_google_auth.sql` (tabel `profiles`, trigger otomatis admin `handle_new_user()`)
-3. Aktifkan **Google OAuth Provider** di Supabase Dashboard:
-   `Authentication` -> `Providers` -> `Google` (masukkan Client ID & Client Secret dari Google Cloud Console).
-   Tambahkan URL redirect: `https://<proyek-anda>.supabase.co/auth/v1/callback` dan URL domain aplikasi.
-
-### 2. Frontend (Vercel)
-1. Hubungkan repositori GitHub ke [Vercel](https://vercel.com).
-2. Tentukan **Root Directory**: `frontend`.
-3. Framework Preset: **Vite**.
-4. Masukkan Environment Variables:
-   - `VITE_SUPABASE_URL`: URL Supabase Anda.
-   - `VITE_SUPABASE_KEY`: Anon Key Supabase.
-   - `VITE_API_BASE_URL`: URL Backend produksi (misal `https://api-ihsg.up.railway.app`).
-5. Deploy. File `frontend/vercel.json` akan otomatis menangani SPA routing.
-
-### 3. Backend (Railway / Render)
-1. Hubungkan repositori ke [Railway](https://railway.app) atau [Render](https://render.com).
-2. Tentukan **Root Directory**: `backend`.
-3. Start Command:
-   ```bash
-   uvicorn main:app --host 0.0.0.0 --port $PORT
-   ```
-4. Tambahkan Environment Variables dari `.env.example`.
-
----
-
-## 🔒 Variabel Lingkungan (.env)
+Buat file `.env` di root direktori proyek (salin dari `.env.example`):
 
 ```env
 # Supabase Configuration
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-anon-or-service-role-key
-SUPABASE_DB_URL=postgresql://postgres.xxx:password@aws-0-region.pooler.supabase.com:6543/postgres
+SUPABASE_KEY=your-supabase-publishable-key
+SUPABASE_SECRET_KEY=your-supabase-service-role-key
+DATABASE_URL=postgresql://postgres.yourproject:password@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres
 
-# Security
-JWT_SECRET=your-secure-jwt-secret-string
-ALGORITHM=HS256
+# JWT Secret
+JWT_SECRET=ihsg-smart-stock-secret-jwt-key-2026
 
-# Frontend (.env)
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_KEY=your-anon-key
-VITE_API_BASE_URL=http://localhost:8000
+# SMTP Configuration (Opsional - untuk kode verifikasi)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_EMAIL=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
 ```
 
 ---
 
-## 📱 Dukungan Progressive Web App (PWA)
-Aplikasi mendukung instalasi langsung di perangkat smartphone (Android / iOS):
-- **Android**: Buka di Chrome -> Muncul banner *"Install IHSG Terminal"* atau ketuk menu titik tiga -> *"Add to Home Screen"*.
-- **iOS (iPhone/iPad)**: Buka di Safari -> Ketuk ikon Share -> *"Add to Home Screen"*.
+### 2. Menjalankan Backend (FastAPI)
+
+```powershell
+# Jalankan langsung dari root direktori proyek
+python -m uvicorn backend.main:app --reload --port 8000
+```
+
+- Dokumentasi Swagger API: `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/health`
 
 ---
 
-## 📄 Lisensi
-Hak Cipta © 2026 IHSG Terminal Pro. Dikembangkan untuk analisis kuantitatif pasar modal dan edukasi investasi.
+### 3. Menjalankan Frontend (React + Vite)
+
+```powershell
+# Install dependensi (hanya pertama kali)
+npm install
+
+# Jalankan dev server Vite
+npm run dev
+```
+
+- Aplikasi web dapat diakses di: `http://localhost:5173`
+- Request ke `/api/*` secara otomatis di-proxy ke backend `http://127.0.0.1:8000`.
+
+---
+
+### 4. Menjalankan Pengujian (Testing & Type Check)
+
+```powershell
+# 1. Menjalankan Static Type Checker (Pyright)
+npx pyright
+
+# 2. Menjalankan Unit Tests Backend
+python -m unittest discover -s backend/tests -p "test_*.py"
+
+# 3. Validasi Build Frontend Production
+npm run build
+```
+
+---
+
+## 📦 Dependensi Utama
+
+### Frontend (`package.json`)
+- `react` & `react-dom` (v19): Framework UI deklaratif.
+- `vite` (v8): Build tool berkecepatan tinggi.
+- `tailwindcss` & `@tailwindcss/vite` (v4): Utility-first styling engine.
+- `@supabase/supabase-js`: Client SDK resmi Supabase Auth & Storage.
+- `axios`: HTTP client dengan interceptor token otentikasi.
+- `lucide-react`: Paket ikon modern dan elegan.
+- `recharts`: Visualisasi grafik interaktif finansial.
+
+### Backend (`requirements.txt`)
+- `fastapi`: Framework web asinkronus berperforma tinggi.
+- `uvicorn`: ASGI web server.
+- `yfinance`: Library pengambil data pasar Yahoo Finance.
+- `pandas` & `numpy`: Pemrosesan deret waktu teknikal & manipulasi matriks.
+- `sqlalchemy` & `psycopg2-binary`: ORM dan PostgreSQL adapter.
+- `supabase`: Python SDK untuk Supabase platform.
+- `pydantic` & `pydantic-settings`: Validasi data dan konfigurasi lingkungan.
+- `mangum`: Adapter Serverless ASGI untuk Vercel / AWS Lambda.
+
+---
+
+## 🔒 Lisensi & Hak Cipta
+Hak Cipta © 2026 **IHSG Terminal Pro**. Dikembangkan untuk investor dan trader pasar modal Indonesia.

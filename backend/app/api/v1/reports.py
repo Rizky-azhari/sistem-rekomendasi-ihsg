@@ -53,6 +53,9 @@ def list_reports(
 
         query += " ORDER BY created_at DESC"
 
+        if not engine:
+            return []
+
         with engine.connect() as conn:
             rows = conn.execute(text(query), params).fetchall()
             for r in rows:
@@ -103,6 +106,9 @@ def create_report(
     if not sym.endswith(".JK") and len(sym) == 4:
         sym = f"{sym}.JK"
 
+    if not engine:
+        raise HTTPException(status_code=503, detail="Database engine tidak tersedia.")
+
     try:
         with engine.connect() as conn:
             conn.execution_options(isolation_level="AUTOCOMMIT")
@@ -133,6 +139,9 @@ def create_report(
                     "is_public": payload.is_public if payload.is_public is not None else True
                 }
             ).first()
+
+            if res is None:
+                raise HTTPException(status_code=500, detail="Gagal membuat laporan analisis saham.")
 
             report_id = str(res[0])
             created_at = res[1].isoformat()
@@ -174,6 +183,9 @@ def delete_report(
     """
     Menghapus laporan. Hanya pemilik laporan atau ADMIN yang diizinkan.
     """
+    if not engine:
+        raise HTTPException(status_code=503, detail="Database engine tidak tersedia.")
+
     try:
         with engine.connect() as conn:
             conn.execution_options(isolation_level="AUTOCOMMIT")

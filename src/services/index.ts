@@ -1,2 +1,3 @@
 // Services barrel export
-export { api } from './stockService';
+export { api, setApiAuthToken } from '../api/client';
+export { supabase } from './supabaseClient';

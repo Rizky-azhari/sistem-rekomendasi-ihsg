@@ -18,7 +18,13 @@ from .analysis import (
 )
 
 # Compatibility classes / aliases
-from .stock_service import StockService
+class StockService:
+    """Service layer for handling stock market data operations (Compatibility)."""
+    @staticmethod
+    def get_stock_data(symbol: str):
+        from .yahoo import get_stock_info
+        return get_stock_info(symbol)
+
 from .yfinance_service import YFinanceService, fetch_stock_info, fetch_stock_history
 
 __all__ = [

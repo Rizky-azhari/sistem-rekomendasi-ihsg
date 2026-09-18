@@ -80,17 +80,17 @@ class TradingPlanGenerator:
         current_price = float(close.iloc[-1])
 
         # Support: Nearest 20-day swing low or 2.5% below price
-        recent_low = float(low.tail(lookback).min())
+        recent_low = float(low.tail(lookback).min())  # type: ignore
         if recent_low >= current_price:
             support = round(current_price * 0.97, 2)
         else:
             support = round(recent_low, 2)
 
         # Resistance: Nearest 20-day or 50-day swing high
-        recent_high = float(high.tail(lookback).max())
+        recent_high = float(high.tail(lookback).max())  # type: ignore
         if recent_high <= current_price:
             # Price at or above 20-day high: use 50-day or project 3% above
-            extended_high = float(high.tail(min(50, len(high))).max())
+            extended_high = float(high.tail(min(50, len(high))).max())  # type: ignore
             if extended_high > current_price:
                 resistance = round(extended_high, 2)
             else:
