@@ -1,3 +1,9 @@
+"""
+Stock Screener — IDX80 Only
+==============================
+5-Factor Rule Based Screener restricted to IDX80 universe.
+"""
+
 import pandas as pd
 from typing import List, Dict, Any, Optional
 from app.services.yahoo import get_historical_data, get_stock_info, DEFAULT_IHSG_SYMBOLS
@@ -86,36 +92,34 @@ def screen_stock_rules(df: pd.DataFrame, symbol: str) -> Dict[str, Any]:
 
 def run_screener(
     symbols: Optional[List[str]] = None,
-    rule_filter: Optional[str] = None,  # 'momentum', 'trend', 'oversold', 'breakout', 'trading_setup'
+    rule_filter: Optional[str] = None,
     min_score: Optional[float] = None,
     sort_by: str = "composite_score"
 ) -> List[Dict[str, Any]]:
     """
-    Runs the 5-Factor Rule Based Screener across active stocks in the stock_universe database.
+    Runs the 5-Factor Rule Based Screener on IDX80 stocks.
     """
-    from app.universe.stock_universe_manager import StockUniverseManager
+    from app.config.idx80_tickers import IDX80_TICKERS, is_idx80
     from app.screener.batch_scanner_engine import BatchScannerEngine
 
-    all_universe = StockUniverseManager.fetch_all_idx_stocks()
-    total_found = len(all_universe)
-
     if not symbols:
-        # Use batched scanned universe results
+        # Use batched IDX80 scanned results
         results = BatchScannerEngine.get_scanned_results(
             rule_filter=rule_filter,
             min_score=min_score,
             sort_by=sort_by
         )
+        total_found = len(IDX80_TICKERS)
         total_success = len(results)
         total_failed = max(0, total_found - total_success)
 
-        print(f"Total saham ditemukan: {total_found}")
-        print(f"Total saham berhasil dianalisis: {total_success}")
-        print(f"Total saham gagal: {total_failed}")
+        print(f"[Screener] IDX80 Universe: {total_found} saham")
+        print(f"[Screener] Berhasil dianalisis: {total_success}")
+        print(f"[Screener] Gagal: {total_failed}")
         return results
 
-    # If specific symbols provided
-    target_symbols = symbols
+    # If specific symbols provided — validate against IDX80
+    target_symbols = [s for s in symbols if is_idx80(s)]
     total_found = len(target_symbols)
     results: List[Dict[str, Any]] = []
 
@@ -183,8 +187,8 @@ def run_screener(
     total_success = len(results)
     total_failed = max(0, total_found - total_success)
 
-    print(f"Total saham ditemukan: {total_found}")
-    print(f"Total saham berhasil dianalisis: {total_success}")
-    print(f"Total saham gagal: {total_failed}")
+    print(f"[Screener] IDX80 Universe: {total_found} saham")
+    print(f"[Screener] Berhasil dianalisis: {total_success}")
+    print(f"[Screener] Gagal: {total_failed}")
 
     return results

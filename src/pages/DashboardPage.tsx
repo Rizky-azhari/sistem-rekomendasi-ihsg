@@ -215,24 +215,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               SAHAM DIANALISIS
             </span>
             <span className="text-[10px] font-mono font-bold bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 px-1.5 py-0.2 rounded">
-              IDX ALL
+              IDX80
             </span>
           </div>
 
           <div className="my-1">
             <div className="flex items-baseline gap-1.5">
               <span className="text-2xl font-black font-mono text-white tracking-tight">
-                {universeStats?.active_stocks || totalAnalyzed || 951}
+                {universeStats?.active_stocks || totalAnalyzed || 80}
               </span>
               <span className="text-xs font-semibold text-slate-400">Emiten</span>
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">
-              Dipindai otomatis seluruh universe IDX.
+              Dipindai otomatis universe konstituen IDX80.
             </p>
           </div>
 
           <div className="flex justify-between items-center text-[10px] font-mono text-slate-500 pt-1.5 border-t border-slate-800/80">
-            <span>Aktif: {universeStats?.active_stocks || 951}</span>
+            <span>Aktif: {universeStats?.active_stocks || 80}</span>
             <span>Batch Multi-thread</span>
           </div>
         </div>
@@ -315,7 +315,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs sm:text-sm font-bold text-white font-mono">
-                  Scanning: {scanningProgress?.current_index || totalAnalyzed || 951} / {scanningProgress?.total_stocks || 951} Saham
+                  Scanning: {scanningProgress?.current_index || totalAnalyzed || 80} / {scanningProgress?.total_stocks || 80} Saham
                 </span>
                 <span className={`text-[9px] font-mono px-2 py-0.2 rounded-full font-bold ${
                   scanningProgress?.is_running
@@ -375,7 +375,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </h3>
           </div>
           <span className="text-xs text-slate-400 font-mono">
-            Total {totalAnalyzed || 951} Emiten Terklasifikasi
+            Total {totalAnalyzed || 80} Emiten Terklasifikasi
           </span>
         </div>
 

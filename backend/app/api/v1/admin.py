@@ -18,35 +18,54 @@ def list_users(current_admin: Dict[str, Any] = Depends(require_role(["admin"])))
     [ADMIN ONLY] Kelola User: Melihat daftar seluruh pengguna terdaftar, peran (role), dan avatar.
     """
     users = []
-    try:
-        with engine.connect() as conn:
-            rows = conn.execute(
-                text("""
-                    SELECT id, email, full_name, avatar_url, role, created_at
-                    FROM public.profiles
-                    ORDER BY created_at DESC
-                """)
-            ).fetchall()
-            for r in rows:
-                users.append({
-                    "id": str(r[0]),
-                    "email": r[1],
-                    "full_name": r[2] or "",
-                    "avatar_url": r[3] or "",
-                    "role": (r[4] or "user").lower(),
-                    "created_at": r[5].isoformat() if r[5] else None
-                })
-    except Exception as e:
-        print(f"[Admin] Error fetching users: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Gagal mengambil data user: {e}"
-        )
+    sb = get_supabase()
+    if sb:
+        try:
+            res = sb.table("profiles").select("id, email, full_name, avatar_url, role, created_at").order("created_at", desc=True).execute()
+            if res.data:
+                for r in res.data:
+                    users.append({
+                        "id": str(r.get("id")),
+                        "email": r.get("email"),
+                        "full_name": r.get("full_name") or "",
+                        "avatar_url": r.get("avatar_url") or "",
+                        "role": str(r.get("role") or "user").lower(),
+                        "created_at": r.get("created_at")
+                    })
+                return {
+                    "total": len(users),
+                    "users": users
+                }
+        except Exception as e:
+            print(f"[Admin] Supabase REST list_users note: {e}")
+
+    if engine:
+        try:
+            with engine.connect() as conn:
+                rows = conn.execute(
+                    text("""
+                        SELECT id, email, full_name, avatar_url, role, created_at
+                        FROM public.profiles
+                        ORDER BY created_at DESC
+                    """)
+                ).fetchall()
+                for r in rows:
+                    users.append({
+                        "id": str(r[0]),
+                        "email": r[1],
+                        "full_name": r[2] or "",
+                        "avatar_url": r[3] or "",
+                        "role": (r[4] or "user").lower(),
+                        "created_at": r[5].isoformat() if r[5] else None
+                    })
+        except Exception as e:
+            print(f"[Admin] Engine list_users note: {e}")
 
     return {
         "total": len(users),
         "users": users
     }
+
 
 
 @router.put("/users/{user_id}/role")

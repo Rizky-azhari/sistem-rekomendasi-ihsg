@@ -1,3 +1,9 @@
+"""
+Stocks API — IDX80 Only
+=========================
+Stock list and detail endpoints restricted to IDX80 universe.
+"""
+
 from fastapi import APIRouter, HTTPException, Query
 from typing import List, Dict, Any
 import pandas as pd
@@ -5,64 +11,86 @@ from app.services.yfinance_service import fetch_stock_info, fetch_stock_history,
 from app.engine.indicators import calculate_technical_indicators
 from app.schemas.stock import StockDetailResponse, StockInfo, OHLCVData, IndicatorData
 from app.core.config import settings
+from app.config.idx80_tickers import IDX80_TICKERS, IDX80_METADATA, is_idx80, normalize_ticker
+from app.core.idx80_validator import validate_ticker, IDX80ValidationError
 
 router = APIRouter()
 
+
 def get_all_universe_stocks() -> List[Dict[str, Any]]:
-    """Fetches all active IDX stocks from stock_universe database table."""
-    try:
-        from app.universe.stock_universe_manager import StockUniverseManager
-        universe = StockUniverseManager.fetch_all_idx_stocks()
-        return [
-            {
-                "symbol": s["symbol"],
-                "name": s.get("company_name") or s["symbol"].replace(".JK", ""),
-                "sector": s.get("sector") or "IDX Equities",
-                "board": s.get("board") or "Utama",
-                "is_active": s.get("is_active", True)
-            }
-            for s in universe if s.get("is_active", True)
-        ]
-    except Exception as e:
-        print(f"[StocksAPI] Warning loading stock_universe database: {e}")
-        return []
+    """Returns all IDX80 stocks with metadata."""
+    results = []
+    for ticker in IDX80_TICKERS:
+        meta = IDX80_METADATA.get(ticker, {})
+        results.append({
+            "symbol": ticker,
+            "name": meta.get("company_name", ticker.replace(".JK", "")),
+            "sector": meta.get("sector", "IDX Equities"),
+            "board": "Utama",
+            "market": "IDX80",
+            "is_active": True
+        })
+    return results
+
 
 @router.get("", response_model=List[Dict[str, Any]])
 def list_all_stocks():
-    """List all available IHSG stocks from stock_universe database."""
+    """List all IDX80 stocks."""
     from app.services.yahoo import get_all_stocks
     return get_all_stocks()
 
 
 @router.get("/search", response_model=List[Dict[str, Any]])
 def search_stocks(q: str = Query("", description="Search term for ticker symbol or name")):
+    """Search within IDX80 stocks only."""
     all_stocks = get_all_universe_stocks()
     q = q.strip().upper()
     if not q:
-        return all_stocks[:50]
-    
+        return all_stocks
+
     results = [
         item for item in all_stocks
         if q in item["symbol"].upper() or q in item["name"].upper()
     ]
+
+    # If no match found and the query looks like a ticker, check IDX80
     if not results and len(q) >= 3:
-        sym = normalize_symbol(q)
-        results = [{"symbol": sym, "name": sym.replace(".JK", ""), "sector": "IDX Stock", "board": "Utama", "is_active": True}]
+        sym = normalize_ticker(q)
+        if is_idx80(sym):
+            meta = IDX80_METADATA.get(sym, {})
+            results = [{
+                "symbol": sym,
+                "name": meta.get("company_name", sym.replace(".JK", "")),
+                "sector": meta.get("sector", "IDX Equities"),
+                "board": "Utama",
+                "market": "IDX80",
+                "is_active": True
+            }]
+        else:
+            # Return empty — ticker not in IDX80
+            results = []
+
     return results
+
 
 @router.get("/{symbol}", response_model=StockDetailResponse)
 def get_stock_detail(symbol: str, period: str = Query("1y", description="Time period e.g. 1mo, 3mo, 6mo, 1y")):
-    sym = normalize_symbol(symbol)
+    """Get detailed stock data — IDX80 validation required."""
+    try:
+        sym = validate_ticker(symbol)  # IDX80 validation gate
+    except IDX80ValidationError as e:
+        raise HTTPException(status_code=400, detail=e.message)
+
     info_raw = fetch_stock_info(sym)
     df_raw = fetch_stock_history(sym, period=period)
-    
+
     if df_raw.empty:
         raise HTTPException(status_code=404, detail=f"No price history found for symbol {sym}")
-        
+
     df_ind = calculate_technical_indicators(df_raw)
-    
+
     info = StockInfo(**info_raw)
-    
+
     ohlcv_list = [
         OHLCVData(
             date=row['Date'],
@@ -73,7 +101,7 @@ def get_stock_detail(symbol: str, period: str = Query("1y", description="Time pe
             volume=int(row['Volume'])
         ) for _, row in df_raw.iterrows()
     ]
-    
+
     indicators_list = [
         IndicatorData(
             date=row['Date'],
@@ -94,11 +122,17 @@ def get_stock_detail(symbol: str, period: str = Query("1y", description="Time pe
             vol_sma20=float(row['Vol_SMA20']) if not pd.isna(row['Vol_SMA20']) else None,
         ) for _, row in df_ind.iterrows()
     ]
-    
+
     return StockDetailResponse(info=info, ohlcv=ohlcv_list, indicators=indicators_list)
+
 
 @router.get("/{symbol}/info", response_model=StockInfo)
 def get_stock_info(symbol: str):
-    sym = normalize_symbol(symbol)
+    """Get stock info — IDX80 validation required."""
+    try:
+        sym = validate_ticker(symbol)  # IDX80 validation gate
+    except IDX80ValidationError as e:
+        raise HTTPException(status_code=400, detail=e.message)
+
     info_dict = fetch_stock_info(sym)
     return StockInfo(**info_dict)

@@ -1,36 +1,38 @@
-import os
-import json
-import csv
-import io
+"""
+Stock Universe Manager — IDX80 Only
+=====================================
+Simplified universe manager that operates exclusively on IDX80 constituents.
+No external API calls, no CSV downloads, no cascading fallbacks.
+The IDX80 ticker list is the authoritative source.
+"""
+
 import datetime
-import urllib.request
-import urllib.parse
-from pathlib import Path
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import select, update
 
 from app.database.connection import get_db, engine, get_supabase, Base
-from app.models.stock_model import StockUniverse
+from app.models.stock_model import IDX80Stock
+from app.config.idx80_tickers import (
+    IDX80_TICKERS,
+    IDX80_METADATA,
+    normalize_ticker,
+    is_idx80,
+    get_all_idx80_tickers,
+    get_idx80_stocks_for_db,
+)
 
 
 class StockUniverseManager:
     """
-    Stock Universe Manager for Indonesia Stock Exchange (IDX).
-    
+    IDX80 Stock Universe Manager.
+
     Responsibilities:
-    - Multi-tiered source resolution (Priority A: Official IDX, Priority B: Online Master Dataset, Priority C: Local Master Fallback)
-    - Dynamic universe management without hardcoded lists
-    - Standardization to Yahoo Finance symbols (.JK)
-    - Database synchronization, delisting management, and IPO tracking
+    - Provides IDX80 ticker list as the only stock universe
+    - Database synchronization (seed/update idx80_stocks table)
+    - O(1) ticker lookups from IDX80_METADATA
+    - Universe statistics for dashboard
     """
 
-    DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
-    LOCAL_FALLBACK_FILE = DATA_DIR / "idx_stock_universe.json"
-    
-    # Priority B source
-    ONLINE_DATASET_URL = "https://raw.githubusercontent.com/wildangunawan/Dataset-Saham-IDX/master/List%20Emiten/all.csv"
-    
     _CACHE_UNIVERSE: List[Dict[str, Any]] = []
     _SYMBOL_LOOKUP: Dict[str, Dict[str, Any]] = {}
     _CACHE_LAST_SYNC: Optional[datetime.datetime] = None
@@ -38,139 +40,53 @@ class StockUniverseManager:
     @classmethod
     def normalize_ticker(cls, symbol: str) -> str:
         """Ensures the ticker has the .JK Yahoo Finance suffix."""
-        sym = symbol.strip().upper()
-        if not sym.endswith(".JK") and not "." in sym:
-            sym = f"{sym}.JK"
-        return sym
+        return normalize_ticker(symbol)
 
     @classmethod
     def get_stock_by_symbol(cls, symbol: str) -> Optional[Dict[str, Any]]:
-        """O(1) ticker lookup from Stock Universe."""
-        sym = cls.normalize_ticker(symbol)
-        if not cls._SYMBOL_LOOKUP:
-            cls.fetch_all_idx_stocks()
-        return cls._SYMBOL_LOOKUP.get(sym)
-
-    @classmethod
-    def fetch_priority_a_idx_api(cls) -> Optional[List[Dict[str, Any]]]:
-        """
-        Priority A: Official IDX API or Public Portal
-        """
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            "Accept": "application/json, text/plain, */*",
-            "Referer": "https://www.idx.co.id/"
-        }
-        url = "https://www.idx.co.id/primary/ListedCompany/GetCompanyProfiles?emitenType=s&start=0&length=1200"
-        try:
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                if resp.status == 200:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    profiles = data.get("data", [])
-                    if profiles and len(profiles) > 50:
-                        results = []
-                        for p in profiles:
-                            code = p.get("KodeEmiten", "").strip().upper()
-                            if code:
-                                results.append({
-                                    "symbol": cls.normalize_ticker(code),
-                                    "code": code,
-                                    "company_name": p.get("NamaEmiten", "").strip(),
-                                    "sector": p.get("Sektor", "General"),
-                                    "board": p.get("PapanPencatatan", "Utama"),
-                                    "is_active": True,
-                                    "source": "IDX_OFFICIAL_API"
-                                })
-                        print(f"[StockUniverse] Priority A success: Fetched {len(results)} stocks from IDX Official API.")
-                        return results
-        except Exception as e:
-            # Fallback to Priority B smoothly
-            pass
+        """O(1) ticker lookup from IDX80 metadata."""
+        sym = normalize_ticker(symbol)
+        meta = IDX80_METADATA.get(sym)
+        if meta:
+            return {
+                "symbol": sym,
+                "code": sym.replace(".JK", ""),
+                "company_name": meta["company_name"],
+                "sector": meta["sector"],
+                "market": "IDX80",
+                "board": "Utama",
+                "is_active": True,
+            }
         return None
-
-    @classmethod
-    def fetch_priority_b_online_dataset(cls) -> Optional[List[Dict[str, Any]]]:
-        """
-        Priority B: Online IDX Master Dataset Mirror (950+ stocks)
-        """
-        headers = {"User-Agent": "Mozilla/5.0"}
-        try:
-            req = urllib.request.Request(cls.ONLINE_DATASET_URL, headers=headers)
-            with urllib.request.urlopen(req, timeout=6) as resp:
-                if resp.status == 200:
-                    content = resp.read().decode("utf-8")
-                    reader = csv.DictReader(io.StringIO(content))
-                    results = []
-                    for row in reader:
-                        code = row.get("code", "").strip().upper()
-                        if not code:
-                            continue
-                        results.append({
-                            "symbol": cls.normalize_ticker(code),
-                            "code": code,
-                            "company_name": row.get("name", "").strip(),
-                            "sector": "IDX Equities",
-                            "board": row.get("listingBoard", "Utama").strip(),
-                            "is_active": True,
-                            "source": "ONLINE_MASTER_DATASET"
-                        })
-                    if len(results) > 100:
-                        print(f"[StockUniverse] Priority B success: Fetched {len(results)} stocks from Online Dataset.")
-                        return results
-        except Exception as e:
-            pass
-        return None
-
-    @classmethod
-    def fetch_priority_c_local_master(cls) -> List[Dict[str, Any]]:
-        """
-        Priority C: Local IDX Master Dataset Fallback (idx_stock_universe.json)
-        """
-        if cls.LOCAL_FALLBACK_FILE.exists():
-            try:
-                with open(cls.LOCAL_FALLBACK_FILE, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    if isinstance(data, list) and len(data) > 0:
-                        print(f"[StockUniverse] Priority C success: Loaded {len(data)} stocks from local master dataset.")
-                        return data
-            except Exception as e:
-                print(f"[StockUniverse] Error reading local master file: {e}")
-
-        # Absolute minimal fallback if even local json is missing
-        return [
-            {"symbol": "BBCA.JK", "code": "BBCA", "company_name": "Bank Central Asia Tbk.", "sector": "Financials", "board": "Utama", "is_active": True},
-            {"symbol": "BBRI.JK", "code": "BBRI", "company_name": "Bank Rakyat Indonesia Tbk.", "sector": "Financials", "board": "Utama", "is_active": True},
-            {"symbol": "BMRI.JK", "code": "BMRI", "company_name": "Bank Mandiri Tbk.", "sector": "Financials", "board": "Utama", "is_active": True},
-            {"symbol": "TLKM.JK", "code": "TLKM", "company_name": "Telkom Indonesia Tbk.", "sector": "Infrastructures", "board": "Utama", "is_active": True}
-        ]
 
     @classmethod
     def fetch_from_database(cls) -> Optional[List[Dict[str, Any]]]:
         """
-        Primary source of truth: Query active stocks directly from stock_universe database table.
-        Uses Supabase HTTPS REST Client or SQLAlchemy engine session.
+        Query active IDX80 stocks from idx80_stocks database table.
+        Uses Supabase REST Client or SQLAlchemy engine session.
         """
         # 1. Try Supabase REST Client
         sb = get_supabase()
         if sb is not None:
             try:
-                res = sb.table("stock_universe").select("symbol, company_name, sector, board, market_cap, is_active").eq("is_active", True).execute()
-                if res.data and len(res.data) > 50:
+                res = sb.table("idx80_stocks").select(
+                    "ticker, company_name, sector, market, is_active"
+                ).eq("is_active", True).execute()
+                if res.data and len(res.data) > 10:
                     stocks = []
                     for row in res.data:
-                        sym = cls.normalize_ticker(row.get("symbol", ""))
+                        sym = normalize_ticker(row.get("ticker", ""))
                         stocks.append({
                             "symbol": sym,
                             "code": sym.replace(".JK", ""),
                             "company_name": row.get("company_name") or sym.replace(".JK", ""),
                             "sector": row.get("sector") or "IDX Equities",
-                            "board": row.get("board") or "Utama",
-                            "market_cap": row.get("market_cap") or 0.0,
+                            "market": row.get("market") or "IDX80",
+                            "board": "Utama",
                             "is_active": row.get("is_active", True),
                             "source": "DATABASE_SUPABASE"
                         })
-                    print(f"[StockUniverse] Database success: Loaded {len(stocks)} active stocks from Supabase stock_universe table.")
+                    print(f"[StockUniverse] Database: Loaded {len(stocks)} active IDX80 stocks from Supabase.")
                     return stocks
             except Exception as e:
                 print(f"[StockUniverse] Supabase DB fetch notice: {e}")
@@ -179,22 +95,22 @@ class StockUniverseManager:
         if engine is not None:
             try:
                 with Session(engine) as session:
-                    records = session.query(StockUniverse).filter_by(is_active=True).all()
-                    if records and len(records) > 50:
+                    records = session.query(IDX80Stock).filter_by(is_active=True).all()
+                    if records and len(records) > 10:
                         stocks = []
                         for r in records:
-                            sym = cls.normalize_ticker(r.symbol)
+                            sym = normalize_ticker(r.ticker)
                             stocks.append({
                                 "symbol": sym,
                                 "code": sym.replace(".JK", ""),
                                 "company_name": r.company_name or sym.replace(".JK", ""),
                                 "sector": r.sector or "IDX Equities",
-                                "board": r.board or "Utama",
-                                "market_cap": r.market_cap or 0.0,
+                                "market": r.market or "IDX80",
+                                "board": "Utama",
                                 "is_active": r.is_active,
                                 "source": "DATABASE_SQLALCHEMY"
                             })
-                        print(f"[StockUniverse] Database success: Loaded {len(stocks)} active stocks from PostgreSQL Session.")
+                        print(f"[StockUniverse] Database: Loaded {len(stocks)} active IDX80 stocks from PostgreSQL.")
                         return stocks
             except Exception as e:
                 print(f"[StockUniverse] SQLAlchemy DB fetch notice: {e}")
@@ -204,24 +120,19 @@ class StockUniverseManager:
     @classmethod
     def fetch_all_idx_stocks(cls, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """
-        Fetches full IDX stock universe with primary source: stock_universe database table.
-        Cascade: stock_universe Database -> Priority A -> Priority B -> Priority C
+        Returns the IDX80 stock universe.
+        Source priority: Database → IDX80 config fallback.
         """
         if not force_refresh and cls._CACHE_UNIVERSE:
             return cls._CACHE_UNIVERSE
 
-        # 1. Primary Source: stock_universe database table
+        # 1. Try database first
         stocks = cls.fetch_from_database()
 
-        # 2. Fallback to external sources if database is empty or not yet reachable
+        # 2. Fallback to IDX80 config (always available, no network needed)
         if not stocks:
-            stocks = cls.fetch_priority_a_idx_api()
-
-        if not stocks:
-            stocks = cls.fetch_priority_b_online_dataset()
-
-        if not stocks:
-            stocks = cls.fetch_priority_c_local_master()
+            stocks = get_idx80_stocks_for_db()
+            print(f"[StockUniverse] Using IDX80 config fallback: {len(stocks)} stocks.")
 
         cls._CACHE_UNIVERSE = stocks
         cls._SYMBOL_LOOKUP = {s["symbol"]: s for s in stocks}
@@ -230,75 +141,79 @@ class StockUniverseManager:
 
     @classmethod
     def get_active_symbols(cls, limit: Optional[int] = None) -> List[str]:
-        """
-        Returns dynamic list of active Yahoo Finance symbols (e.g. ['AALI.JK', 'BBCA.JK', ...]).
-        """
-        all_stocks = cls.fetch_all_idx_stocks()
-        symbols = [s["symbol"] for s in all_stocks if s.get("is_active", True)]
+        """Returns IDX80 ticker list."""
+        tickers = get_all_idx80_tickers()
         if limit:
-            return symbols[:limit]
-        return symbols
+            return tickers[:limit]
+        return tickers
 
     @classmethod
     def sync_to_database(cls) -> Dict[str, Any]:
         """
-        Synchronizes the fetched Stock Universe to PostgreSQL / Supabase stock_universe table.
-        - Inserts new IPO stocks
-        - Updates active stocks and sectors
-        - Updates last_update timestamp
+        Seeds/updates the idx80_stocks table with IDX80 constituent data.
+        No external API calls — uses the hardcoded IDX80 config.
         """
-        stocks = cls.fetch_all_idx_stocks(force_refresh=True)
+        stocks = get_idx80_stocks_for_db()
         now = datetime.datetime.now()
         inserted = 0
         updated = 0
 
-        # Ensure database tables exist
+        # Ensure database table exists
         try:
-            Base.metadata.create_all(bind=engine, tables=[StockUniverse.__table__], checkfirst=True)
+            Base.metadata.create_all(bind=engine, tables=[IDX80Stock.__table__], checkfirst=True)
         except Exception as e:
             print(f"[StockUniverse] Note on table ensure: {e}")
 
         try:
             with Session(engine) as session:
-                # Query existing symbols in DB
-                existing_records = {u.symbol: u for u in session.query(StockUniverse).all()}
+                existing_records = {u.ticker: u for u in session.query(IDX80Stock).all()}
 
                 for item in stocks:
-                    sym = cls.normalize_ticker(item["symbol"])
-                    name = item.get("company_name") or sym.replace(".JK", "")
-                    sec = item.get("sector") or "General"
-                    brd = item.get("board") or "Utama"
-                    mcap = item.get("shares", 0.0)
+                    ticker = item["ticker"]
+                    name = item["company_name"]
+                    sector = item["sector"]
+                    market = item.get("market", "IDX80")
 
-                    if sym in existing_records:
-                        record = existing_records[sym]
+                    if ticker in existing_records:
+                        record = existing_records[ticker]
                         record.company_name = name
-                        record.sector = sec
-                        record.board = brd
-                        record.is_active = item.get("is_active", True)
-                        record.last_update = now
+                        record.sector = sector
+                        record.market = market
+                        record.is_active = True
+                        record.updated_at = now
                         updated += 1
                     else:
-                        new_record = StockUniverse(
-                            symbol=sym,
+                        new_record = IDX80Stock(
+                            ticker=ticker,
                             company_name=name,
-                            sector=sec,
-                            board=brd,
-                            market_cap=mcap,
-                            is_active=item.get("is_active", True),
-                            last_update=now
+                            sector=sector,
+                            market=market,
+                            is_active=True,
+                            updated_at=now
                         )
                         session.add(new_record)
                         inserted += 1
 
+                # Deactivate any tickers in DB that are no longer in IDX80
+                idx80_set = {s["ticker"] for s in stocks}
+                for ticker, record in existing_records.items():
+                    if ticker not in idx80_set:
+                        record.is_active = False
+                        record.updated_at = now
+
                 session.commit()
-                print(f"[StockUniverse] DB Sync complete: {inserted} inserted, {updated} updated.")
+                print(f"[StockUniverse] IDX80 sync complete: {inserted} inserted, {updated} updated.")
         except Exception as e:
             print(f"[StockUniverse] Database sync error: {e}")
 
+        # Refresh cache
+        cls._CACHE_UNIVERSE = []
+        cls.fetch_all_idx_stocks(force_refresh=True)
+
         return {
             "total_universe": len(stocks),
-            "inserted_new_ipos": inserted,
+            "universe_name": "IDX80",
+            "inserted_new": inserted,
             "updated_existing": updated,
             "last_update": now.strftime("%Y-%m-%d %H:%M:%S")
         }
@@ -306,11 +221,7 @@ class StockUniverseManager:
     @classmethod
     def get_universe_stats(cls) -> Dict[str, Any]:
         """
-        Returns real-time universe statistics for Dashboard:
-        - Total Universe: xxx saham
-        - Aktif: xxx saham
-        - Delisted / Non-aktif: xxx saham
-        - Last Update: tanggal
+        Returns IDX80 universe statistics for Dashboard.
         """
         stocks = cls.fetch_all_idx_stocks()
         total = len(stocks)
@@ -334,25 +245,9 @@ class StockUniverseManager:
             "total_universe": total,
             "active_stocks": active,
             "inactive_stocks": inactive,
-            "universe_name": "IDX All Stock",
+            "universe_name": "IDX80",
             "last_update": last_sync_str,
             "last_scan": last_scan_formatted,
-            "display_label": f"{total} Emiten",
-            "source_status": "Dinamis Terverifikasi"
+            "display_label": f"{total} Emiten IDX80",
+            "source_status": "IDX80 Whitelist"
         }
-
-    @classmethod
-    def deactivate_delisted(cls, symbol: str) -> bool:
-        """Marks a delisted stock as is_active = False."""
-        sym = cls.normalize_ticker(symbol)
-        try:
-            with Session(engine) as session:
-                rec = session.query(StockUniverse).filter_by(symbol=sym).first()
-                if rec:
-                    rec.is_active = False
-                    rec.last_update = datetime.datetime.now()
-                    session.commit()
-                    return True
-        except Exception as e:
-            print(f"[StockUniverse] Error deactivating {sym}: {e}")
-        return False

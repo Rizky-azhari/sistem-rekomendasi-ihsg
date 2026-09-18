@@ -1,19 +1,42 @@
 import os
+import json
+import datetime
 from typing import Optional, List, Dict, Any
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from app.database.connection import get_supabase, engine
+import jwt
 from sqlalchemy import text
 
+from app.database.connection import get_supabase, engine
+from app.core.config import settings
+
 security_scheme = HTTPBearer(auto_error=False)
+
+
+def create_jwt_token(data: dict, expires_delta: Optional[datetime.timedelta] = None) -> str:
+    """Generates a signed JWT token for email/password and demo login sessions."""
+    to_encode = data.copy()
+    expire = datetime.datetime.utcnow() + (expires_delta or datetime.timedelta(days=7))
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, settings.JWT_SECRET, algorithm="HS256")
+
+
+def decode_jwt_token(token: str) -> Optional[dict]:
+    """Decodes a locally issued JWT token."""
+    try:
+        return jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
+    except Exception:
+        return None
 
 
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme)
 ) -> Dict[str, Any]:
     """
-    Extracts and validates Supabase Auth JWT token from Authorization header.
-    Returns the authenticated user dict including role from public.user_profiles.
+    Extracts and validates Auth token from Authorization header.
+    Supports:
+    1. Locally signed JWT tokens (issued by Email/Password login)
+    2. Supabase Auth OAuth JWT tokens (issued by Google OAuth)
     """
     if not credentials or not credentials.credentials:
         raise HTTPException(
@@ -23,78 +46,82 @@ async def get_current_user(
         )
 
     token = credentials.credentials
-    sb = get_supabase()
-    if not sb:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Supabase client tidak tersedia di server."
-        )
 
-    try:
-        # Validate token with Supabase Auth
-        user_response = sb.auth.get_user(token)
-        user = getattr(user_response, "user", None) or user_response
-        if not user or not getattr(user, "id", None):
-            raise ValueError("Invalid user token")
-        
-        user_id = str(user.id)
-        email = str(getattr(user, "email", "") or "")
-    except Exception as e:
-        print(f"[Security] Token validation error: {e}")
+    # 1. Check if token is a locally issued JWT (Email / Password login)
+    local_payload = decode_jwt_token(token)
+    if local_payload and "sub" in local_payload:
+        email = str(local_payload.get("email", ""))
+        return {
+            "id": str(local_payload["sub"]),
+            "email": email,
+            "full_name": str(local_payload.get("full_name") or email.split("@")[0]),
+            "avatar_url": str(local_payload.get("avatar_url", "")),
+            "role": str(local_payload.get("role", "user")).lower()
+        }
+
+    # 2. Check token with Supabase Auth (Google OAuth)
+    sb = get_supabase()
+    user_id = None
+    email = None
+
+    if sb:
+        try:
+            user_response = sb.auth.get_user(token)
+            user = getattr(user_response, "user", None) or user_response
+            if user and getattr(user, "id", None):
+                user_id = str(user.id)
+                email = str(getattr(user, "email", "") or "")
+        except Exception as e:
+            print(f"[Security] Supabase get_user note: {e}")
+
+    if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Sesi login tidak valid atau telah kadaluarsa. Silakan login kembali.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Fetch user role and profile from public.profiles
+    # 3. Fetch user profile from Supabase profiles table via REST API
     profile = None
-    try:
-        with engine.connect() as conn:
-            row = conn.execute(
-                text("SELECT id, email, full_name, avatar_url, role FROM public.profiles WHERE id = :id"),
-                {"id": user_id}
-            ).first()
-            if row:
+    if sb:
+        try:
+            res = sb.table("profiles").select("id, email, full_name, avatar_url, role").eq("id", user_id).limit(1).execute()
+            if res.data:
+                row = res.data[0]
                 profile = {
-                    "id": str(row[0]),
-                    "email": row[1],
-                    "full_name": row[2] or "",
-                    "avatar_url": row[3] or "",
-                    "role": (row[4] or "user").lower()
+                    "id": str(row["id"]),
+                    "email": row.get("email") or email,
+                    "full_name": row.get("full_name") or email.split("@")[0],
+                    "avatar_url": row.get("avatar_url") or "",
+                    "role": str(row.get("role") or "user").lower()
                 }
-            else:
-                # First time login fallback if trigger was skipped:
-                # Check if any admin exists in profiles
-                admin_count = conn.execute(text("SELECT count(*) FROM public.profiles WHERE role = 'admin'")).scalar() or 0
-                assigned_role = "admin" if admin_count == 0 else "user"
-                
-                meta = getattr(user, "user_metadata", {}) or {}
-                full_name = meta.get("full_name") or meta.get("name") or email.split("@")[0]
-                avatar_url = meta.get("avatar_url") or meta.get("picture") or ""
-                
-                conn.execution_options(isolation_level="AUTOCOMMIT")
-                conn.execute(
-                    text("""
-                        INSERT INTO public.profiles (id, email, full_name, avatar_url, role, created_at)
-                        VALUES (:id, :email, :full_name, :avatar, :role, NOW())
-                        ON CONFLICT (id) DO UPDATE SET email = :email, full_name = :full_name, avatar_url = :avatar
-                    """),
-                    {"id": user_id, "email": email, "full_name": full_name, "avatar": avatar_url, "role": assigned_role}
-                )
-                profile = {
-                    "id": user_id,
-                    "email": email,
-                    "full_name": full_name,
-                    "avatar_url": avatar_url,
-                    "role": assigned_role
-                }
-    except Exception as e:
-        print(f"[Security] Database fetch profile error: {e}")
+        except Exception as e:
+            print(f"[Security] Supabase REST profile fetch notice: {e}")
+
+    # Fallback to direct DB engine if Supabase REST had an issue
+    if not profile and engine:
+        try:
+            with engine.connect() as conn:
+                row = conn.execute(
+                    text("SELECT id, email, full_name, avatar_url, role FROM public.profiles WHERE id = :id"),
+                    {"id": user_id}
+                ).first()
+                if row:
+                    profile = {
+                        "id": str(row[0]),
+                        "email": row[1],
+                        "full_name": row[2] or row[1].split("@")[0],
+                        "avatar_url": row[3] or "",
+                        "role": (row[4] or "user").lower()
+                    }
+        except Exception:
+            pass
+
+    if not profile:
         profile = {
             "id": user_id,
-            "email": email,
-            "full_name": email.split("@")[0],
+            "email": email or "",
+            "full_name": (email or "").split("@")[0] if email else "User",
             "avatar_url": "",
             "role": "user"
         }
@@ -129,30 +156,45 @@ def log_activity_event(
     details: Optional[Dict[str, Any]] = None,
     request: Optional[Request] = None
 ):
-    """Logs user activity to public.activity_logs table for audit trail."""
-    import json
+    """Logs user activity for audit trail. Fails gracefully without raising errors."""
     ip_addr = None
     if request:
         client_host = request.client.host if request.client else None
         forwarded = request.headers.get("x-forwarded-for")
         ip_addr = forwarded.split(",")[0].strip() if forwarded else client_host
 
-    try:
-        with engine.connect() as conn:
-            conn.execution_options(isolation_level="AUTOCOMMIT")
-            conn.execute(
-                text("""
-                    INSERT INTO public.activity_logs (user_id, user_email, role, action, details, ip_address, created_at)
-                    VALUES (:uid, :email, :role, :action, CAST(:details AS jsonb), :ip, NOW())
-                """),
-                {
-                    "uid": user_id,
-                    "email": user_email,
-                    "role": role,
-                    "action": action,
-                    "details": json.dumps(details or {}),
-                    "ip": ip_addr or "127.0.0.1"
-                }
-            )
-    except Exception as e:
-        print(f"[Security] Failed to write activity log: {e}")
+    sb = get_supabase()
+    if sb:
+        try:
+            sb.table("activity_logs").insert({
+                "user_id": user_id,
+                "user_email": user_email,
+                "role": role or "user",
+                "action": action,
+                "details": details or {},
+                "ip_address": ip_addr or "127.0.0.1"
+            }).execute()
+            return
+        except Exception:
+            pass
+
+    if engine:
+        try:
+            with engine.connect() as conn:
+                conn.execution_options(isolation_level="AUTOCOMMIT")
+                conn.execute(
+                    text("""
+                        INSERT INTO public.activity_logs (user_id, user_email, role, action, details, ip_address, created_at)
+                        VALUES (:uid, :email, :role, :action, CAST(:details AS jsonb), :ip, NOW())
+                    """),
+                    {
+                        "uid": user_id,
+                        "email": user_email,
+                        "role": role,
+                        "action": action,
+                        "details": json.dumps(details or {}),
+                        "ip": ip_addr or "127.0.0.1"
+                    }
+                )
+        except Exception:
+            pass

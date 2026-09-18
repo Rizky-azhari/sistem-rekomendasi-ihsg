@@ -151,6 +151,22 @@ class StockUniverse(Base):
 
 
 # ==============================================================================
+# 8. IDX80_STOCKS TABLE (IDX80 Index Constituents — Performance Optimized)
+# ==============================================================================
+class IDX80Stock(Base):
+    """IDX80 Index constituent reference table. 80 constituent stocks."""
+    __tablename__ = "idx80_stocks"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    ticker = Column(String(20), unique=True, nullable=False, index=True)
+    company_name = Column(String(255), nullable=False)
+    sector = Column(String(100), nullable=True, index=True)
+    market = Column(String(20), default="IDX80", index=True)
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+# ==============================================================================
 # BACKWARD COMPATIBILITY ALIASES & CACHE
 # ==============================================================================
 class StockCache(Base):

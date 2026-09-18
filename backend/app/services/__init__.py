@@ -3,7 +3,7 @@ from .yahoo import (
     get_stock_info,
     get_all_stocks,
     get_historical_data,
-    normalize_symbol,
+    normalize_ticker as normalize_symbol,  # backward compatibility alias
     DEFAULT_IHSG_SYMBOLS
 )
 from .indicator import (

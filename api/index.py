@@ -1,3 +1,9 @@
+"""
+Vercel Serverless Function — IDX80 Only
+==========================================
+Entry point for Vercel serverless deployment with IDX80 validation.
+"""
+
 import sys
 import os
 from pathlib import Path
@@ -21,6 +27,7 @@ from app.core.config import settings
 from app.api.v1 import stocks, recommendations, screening, auth, admin, reports
 from app.routes.ihsg_routes import router as ihsg_router
 from app.database.connection import init_db, get_supabase
+from app.core.idx80_validator import IDX80ValidationError
 
 # Lazy DB Initialization flag
 _DB_INITIALIZED = False
@@ -36,13 +43,13 @@ def ensure_db():
 
 # Create FastAPI App
 app = FastAPI(
-    title=f"{settings.PROJECT_NAME} (Vercel Serverless)",
+    title=f"{settings.PROJECT_NAME} (Vercel Serverless — IDX80)",
     openapi_url="/api/openapi.json",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
 )
 
-# 2. CORS Middleware: Support localhost and all Vercel production/preview deployments
+# 2. CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -51,6 +58,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# IDX80 validation exception handler
+@app.exception_handler(IDX80ValidationError)
+async def handle_idx80_validation_error(request: Request, exc: IDX80ValidationError):
+    return JSONResponse(
+        status_code=400,
+        content={
+            "detail": exc.message,
+            "ticker": exc.symbol,
+            "allowed_universe": "IDX80"
+        }
+    )
 
 # Global Exception Handler for resilience
 @app.middleware("http")
@@ -77,7 +96,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 
-# 4. Mount Routes under /api/v1 prefix for complete backward compatibility
+# 4. Mount Routes under /api/v1 prefix for backward compatibility
 app.include_router(ihsg_router, prefix="/api/v1")
 app.include_router(stocks.router, prefix="/api/v1/stocks", tags=["stocks-v1"])
 app.include_router(recommendations.router, prefix="/api/v1/recommendations", tags=["recommendations-v1"])
@@ -86,7 +105,7 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth-v1"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin-v1"])
 app.include_router(reports.router, prefix="/api/v1/reports", tags=["reports-v1"])
 
-# Also mount under root (in case request arrives without /api prefix)
+# Also mount under root
 app.include_router(ihsg_router)
 
 # Health & Root Check Endpoints
@@ -98,6 +117,7 @@ def serverless_health():
     return {
         "status": "ok",
         "runtime": "Vercel Serverless Function (Python Mangum)",
+        "universe": "IDX80",
         "supabase_connected": get_supabase() is not None,
         "endpoints": {
             "stocks": "/api/stocks",

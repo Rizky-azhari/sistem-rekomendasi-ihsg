@@ -1,41 +1,50 @@
+"""
+Yahoo Finance Service — IDX80 Optimized
+=========================================
+All data fetching is restricted to IDX80 constituents only.
+Uses batch download (yf.download) and in-memory caching to minimize API calls.
+"""
+
 import yfinance as yf
 import pandas as pd
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-# Dynamic stock retrieval from StockUniverseManager
+from app.config.idx80_tickers import (
+    IDX80_TICKERS,
+    IDX80_METADATA,
+    normalize_ticker,
+    is_idx80,
+    get_all_idx80_tickers,
+)
+from app.core.idx80_validator import validate_ticker, IDX80ValidationError
+from app.services.data_cache import idx80_cache
+
+
+# Backward compatibility — now returns only IDX80 tickers
+DEFAULT_IHSG_SYMBOLS = list(IDX80_TICKERS)
+normalize_symbol = normalize_ticker
+
+
+
 def get_all_idx_symbols(limit: Optional[int] = None) -> List[str]:
-    """Dynamically retrieves active IDX tickers from StockUniverseManager."""
-    try:
-        from app.universe.stock_universe_manager import StockUniverseManager
-        return StockUniverseManager.get_active_symbols(limit=limit)
-    except Exception:
-        # Emergency fallback if module is loading
-        return [
-            "BBCA.JK", "BBRI.JK", "BMRI.JK", "BBNI.JK",
-            "TLKM.JK", "ASII.JK", "GOTO.JK", "ICBP.JK"
-        ]
-
-
-# Backward compatibility dynamic symbol list
-DEFAULT_IHSG_SYMBOLS = get_all_idx_symbols()
+    """Returns IDX80 tickers only."""
+    tickers = get_all_idx80_tickers()
+    if limit:
+        return tickers[:limit]
+    return tickers
 
 
 def get_stock_metadata(symbol: str) -> Dict[str, str]:
-    """Dynamically retrieves company name and sector from Stock Universe."""
-    sym = normalize_symbol(symbol)
-    try:
-        from app.universe.stock_universe_manager import StockUniverseManager
-        item = StockUniverseManager.get_stock_by_symbol(sym)
-        if item:
-            return {
-                "name": item.get("company_name") or sym.replace(".JK", ""),
-                "sector": item.get("sector") or "IDX Equities",
-                "exchange": "IDX"
-            }
-    except Exception:
-        pass
-
+    """Retrieves company name and sector from IDX80 metadata."""
+    sym = normalize_ticker(symbol)
+    meta = IDX80_METADATA.get(sym)
+    if meta:
+        return {
+            "name": meta["company_name"],
+            "sector": meta["sector"],
+            "exchange": "IDX"
+        }
     return {
         "name": sym.replace(".JK", ""),
         "sector": "IDX Equities",
@@ -43,20 +52,20 @@ def get_stock_metadata(symbol: str) -> Dict[str, str]:
     }
 
 
-
-def normalize_symbol(symbol: str) -> str:
-    """Normalize user input to standard IDX ticker format (e.g. BBCA -> BBCA.JK)."""
-    cleaned = symbol.strip().upper()
-    if not cleaned.endswith(".JK") and "." not in cleaned:
-        cleaned += ".JK"
-    return cleaned
-
-
 def get_stock_info(symbol: str) -> Dict[str, Any]:
-    """Fetch current info and price for a single stock from Yahoo Finance."""
-    sym = normalize_symbol(symbol)
+    """
+    Fetch current info and price for a single IDX80 stock.
+    Uses cache to avoid redundant API calls.
+    """
+    sym = validate_ticker(symbol)  # IDX80 validation gate
+
+    # Check cache first
+    cached = idx80_cache.get_info(sym)
+    if cached:
+        return cached
+
     meta = get_stock_metadata(sym)
-    
+
     current_price = 0.0
     previous_close = 0.0
     change = 0.0
@@ -65,7 +74,6 @@ def get_stock_info(symbol: str) -> Dict[str, Any]:
 
     try:
         ticker = yf.Ticker(sym)
-        # Fetch fast history for the last 5 days to guarantee valid close and previous close
         hist = ticker.history(period="5d")
         if not hist.empty:
             current_price = float(hist["Close"].iloc[-1])
@@ -73,12 +81,10 @@ def get_stock_info(symbol: str) -> Dict[str, Any]:
                 previous_close = float(hist["Close"].iloc[-2])
             else:
                 previous_close = current_price
-
             change = round(current_price - previous_close, 2)
             change_pct = round((change / previous_close * 100), 2) if previous_close > 0 else 0.0
             volume = int(hist["Volume"].iloc[-1])
         else:
-            # Fallback to info dict
             info = ticker.info or {}
             current_price = float(info.get("currentPrice") or info.get("regularMarketPrice") or 0.0)
             previous_close = float(info.get("previousClose") or current_price)
@@ -88,7 +94,7 @@ def get_stock_info(symbol: str) -> Dict[str, Any]:
     except Exception as e:
         print(f"[YahooService] Warning fetching info for {sym}: {e}")
 
-    return {
+    data = {
         "symbol": sym,
         "company_name": meta["name"],
         "sector": meta["sector"],
@@ -101,77 +107,208 @@ def get_stock_info(symbol: str) -> Dict[str, Any]:
         "updated_at": datetime.now().isoformat()
     }
 
+    # Store in cache
+    idx80_cache.set_info(sym, data)
+    return data
+
 
 def get_all_stocks(symbols: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-    """Fetch overview list of stocks."""
+    """Fetch overview list of IDX80 stocks."""
     if symbols:
         results = []
         for sym in symbols:
-            results.append(get_stock_info(sym))
+            normalized = normalize_ticker(sym)
+            if is_idx80(normalized):
+                results.append(get_stock_info(normalized))
         return results
 
-    # Return full universe with cached prices if available
-    try:
-        from app.universe.stock_universe_manager import StockUniverseManager
-        from app.screener.batch_scanner_engine import BatchScannerEngine
-        universe = StockUniverseManager.fetch_all_idx_stocks()
-        cached_prices = {r["symbol"]: r for r in BatchScannerEngine._RESULTS}
+    # Return full IDX80 universe with metadata
+    from app.screener.batch_scanner_engine import BatchScannerEngine
+    cached_prices = {r["symbol"]: r for r in BatchScannerEngine._RESULTS}
 
-        results = []
-        for s in universe:
-            sym = s["symbol"]
-            cached = cached_prices.get(sym)
-            results.append({
-                "symbol": sym,
-                "company_name": s.get("company_name") or sym.replace(".JK", ""),
-                "sector": s.get("sector") or "IDX Equities",
-                "board": s.get("board") or "Utama",
-                "exchange": "IDX",
-                "current_price": cached["price"] if cached else 0.0,
-                "change_percentage": cached.get("change_percentage", 0.0) if cached else 0.0,
-                "volume": cached.get("volume", 0) if cached else 0,
-                "final_score": cached.get("final_score") if cached else None,
-                "recommendation": cached.get("recommendation") if cached else None,
-                "is_active": s.get("is_active", True),
-                "updated_at": datetime.now().isoformat()
-            })
-        return results
-    except Exception as e:
-        print(f"[YahooService] Fallback in get_all_stocks: {e}")
-        return [get_stock_info(s) for s in ["BBCA.JK", "BBRI.JK", "BMRI.JK", "TLKM.JK", "ASII.JK"]]
+    results = []
+    for ticker in IDX80_TICKERS:
+        meta = IDX80_METADATA.get(ticker, {})
+        cached = cached_prices.get(ticker)
+        results.append({
+            "symbol": ticker,
+            "company_name": meta.get("company_name", ticker.replace(".JK", "")),
+            "sector": meta.get("sector", "IDX Equities"),
+            "board": "Utama",
+            "exchange": "IDX",
+            "market": "IDX80",
+            "current_price": cached["price"] if cached else 0.0,
+            "change_percentage": cached.get("change_percentage", 0.0) if cached else 0.0,
+            "volume": cached.get("volume", 0) if cached else 0,
+            "final_score": cached.get("final_score") if cached else None,
+            "recommendation": cached.get("recommendation") if cached else None,
+            "is_active": True,
+            "updated_at": datetime.now().isoformat()
+        })
+    return results
 
 
 def get_historical_data(symbol: str, period: str = "1y", interval: str = "1d") -> pd.DataFrame:
     """
-    Fetch historical OHLCV data for a symbol from Yahoo Finance as a pandas DataFrame.
-    Guarantees standard columns: Date, Open, High, Low, Close, Volume.
+    Fetch historical OHLCV data for an IDX80 symbol.
+    Uses cache to avoid redundant downloads.
     """
-    sym = normalize_symbol(symbol)
-    ticker = yf.Ticker(sym)
-    df = ticker.history(period=period, interval=interval)
+    sym = validate_ticker(symbol)  # IDX80 validation gate
 
-    if df.empty:
-        # Fallback period if 1y is empty
-        df = ticker.history(period="6mo", interval=interval)
+    # Check cache first
+    cached_df = idx80_cache.get_history(sym, period)
+    if cached_df is not None and not cached_df.empty:
+        return cached_df
 
-    if df.empty:
+    try:
+        ticker = yf.Ticker(sym)
+        df = ticker.history(period=period, interval=interval)
+
+        if df.empty:
+            df = ticker.history(period="6mo", interval=interval)
+
+        if df.empty:
+            return pd.DataFrame()
+
+        df = df.reset_index()
+
+        if "Date" in df.columns:
+            df["Date"] = pd.to_datetime(df["Date"]).dt.strftime("%Y-%m-%d")
+        elif "Datetime" in df.columns:
+            df["Date"] = pd.to_datetime(df["Datetime"]).dt.strftime("%Y-%m-%d")
+
+        core_cols = ["Date", "Open", "High", "Low", "Close", "Volume"]
+        df = df[[c for c in core_cols if c in df.columns]]
+        df["Open"] = df["Open"].round(2)
+        df["High"] = df["High"].round(2)
+        df["Low"] = df["Low"].round(2)
+        df["Close"] = df["Close"].round(2)
+        df["Volume"] = df["Volume"].astype(int)
+
+        # Store in cache
+        idx80_cache.set_history(sym, period, df)
+        return df
+
+    except IDX80ValidationError:
+        raise
+    except Exception as e:
+        print(f"[YahooService] Error fetching history for {sym}: {e}")
         return pd.DataFrame()
 
-    df = df.reset_index()
 
-    # Normalize Date column
-    if "Date" in df.columns:
-        df["Date"] = pd.to_datetime(df["Date"]).dt.strftime("%Y-%m-%d")
-    elif "Datetime" in df.columns:
-        df["Date"] = pd.to_datetime(df["Datetime"]).dt.strftime("%Y-%m-%d")
+def batch_download_idx80(
+    tickers: Optional[List[str]] = None,
+    period: str = "1y",
+    interval: str = "1d"
+) -> Dict[str, pd.DataFrame]:
+    """
+    Batch download historical data for multiple IDX80 tickers using yf.download().
+    This is dramatically more efficient than individual downloads.
 
-    # Keep and round core OHLCV columns
-    core_cols = ["Date", "Open", "High", "Low", "Close", "Volume"]
-    df = df[[c for c in core_cols if c in df.columns]]
-    df["Open"] = df["Open"].round(2)
-    df["High"] = df["High"].round(2)
-    df["Low"] = df["Low"].round(2)
-    df["Close"] = df["Close"].round(2)
-    df["Volume"] = df["Volume"].astype(int)
+    Args:
+        tickers: List of tickers to download. Defaults to all IDX80.
+        period: Time period (e.g. "1y", "6mo").
+        interval: Data interval (e.g. "1d", "1wk").
 
-    return df
+    Returns:
+        Dict mapping each ticker to its OHLCV DataFrame.
+    """
+    target_tickers = tickers or IDX80_TICKERS
+
+    # Only download tickers that are not already cached
+    uncached_tickers = []
+    cached_results: Dict[str, pd.DataFrame] = {}
+
+    for t in target_tickers:
+        cached_df = idx80_cache.get_history(t, period)
+        if cached_df is not None and not cached_df.empty:
+            cached_results[t] = cached_df
+        else:
+            uncached_tickers.append(t)
+
+    results = dict(cached_results)
+
+    if not uncached_tickers:
+        print(f"[YahooService] All {len(target_tickers)} IDX80 tickers served from cache.")
+        return results
+
+    print(f"[YahooService] Batch downloading {len(uncached_tickers)} IDX80 tickers via yf.download()...")
+
+    try:
+        raw = yf.download(
+            tickers=uncached_tickers,
+            period=period,
+            interval=interval,
+            group_by="ticker",
+            threads=True,
+            progress=False
+        )
+
+        if raw.empty:
+            print("[YahooService] Batch download returned empty DataFrame.")
+            return results
+
+        for ticker in uncached_tickers:
+            try:
+                if len(uncached_tickers) == 1:
+                    ticker_df = raw.copy()
+                else:
+                    if ticker in raw.columns.get_level_values(0):
+                        ticker_df = raw[ticker].copy()
+                    else:
+                        continue
+
+                ticker_df = ticker_df.dropna(how="all")
+                if ticker_df.empty:
+                    continue
+
+                ticker_df = ticker_df.reset_index()
+
+                if "Date" in ticker_df.columns:
+                    ticker_df["Date"] = pd.to_datetime(ticker_df["Date"]).dt.strftime("%Y-%m-%d")
+                elif "Datetime" in ticker_df.columns:
+                    ticker_df["Date"] = pd.to_datetime(ticker_df["Datetime"]).dt.strftime("%Y-%m-%d")
+
+                core_cols = ["Date", "Open", "High", "Low", "Close", "Volume"]
+                ticker_df = ticker_df[[c for c in core_cols if c in ticker_df.columns]]
+
+                for col in ["Open", "High", "Low", "Close"]:
+                    if col in ticker_df.columns:
+                        ticker_df[col] = ticker_df[col].round(2)
+                if "Volume" in ticker_df.columns:
+                    ticker_df["Volume"] = ticker_df["Volume"].fillna(0).astype(int)
+
+                results[ticker] = ticker_df
+                idx80_cache.set_history(ticker, period, ticker_df)
+
+            except Exception as e:
+                print(f"[YahooService] Error processing batch data for {ticker}: {e}")
+                continue
+
+        print(f"[YahooService] Batch download complete: {len(results)}/{len(target_tickers)} tickers retrieved.")
+
+    except Exception as e:
+        print(f"[YahooService] Batch download error: {e}")
+        # Fallback: download individually for any remaining tickers
+        for ticker in uncached_tickers:
+            if ticker not in results:
+                try:
+                    t = yf.Ticker(ticker)
+                    df = t.history(period=period, interval=interval)
+                    if not df.empty:
+                        df = df.reset_index()
+                        if "Date" in df.columns:
+                            df["Date"] = pd.to_datetime(df["Date"]).dt.strftime("%Y-%m-%d")
+                        core_cols = ["Date", "Open", "High", "Low", "Close", "Volume"]
+                        df = df[[c for c in core_cols if c in df.columns]]
+                        df["Open"] = df["Open"].round(2)
+                        df["High"] = df["High"].round(2)
+                        df["Low"] = df["Low"].round(2)
+                        df["Close"] = df["Close"].round(2)
+                        df["Volume"] = df["Volume"].astype(int)
+                        results[ticker] = df
+                        idx80_cache.set_history(ticker, period, df)
+                except Exception:
+                    pass
+
+    return results

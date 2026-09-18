@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     SUPABASE_KEY: str = ""
     SUPABASE_SECRET_KEY: str = ""
     DATABASE_URL: str = ""
+    JWT_SECRET: str = "ihsg-smart-stock-secret-jwt-key-2026"
+
 
     # SMTP Email Settings (for verification code delivery)
     SMTP_HOST: str = ""
@@ -24,12 +26,9 @@ class Settings(BaseSettings):
 
     @property
     def DEFAULT_IDX_STOCKS(self) -> List[str]:
-        """Dynamic stock universe retrieved directly from stock_universe database table."""
-        try:
-            from app.universe.stock_universe_manager import StockUniverseManager
-            return StockUniverseManager.get_active_symbols()
-        except Exception:
-            return ["BBCA.JK", "BBRI.JK", "BMRI.JK", "TLKM.JK", "ASII.JK"]
+        """Returns IDX80 tickers — the only supported universe."""
+        from app.config.idx80_tickers import get_all_idx80_tickers
+        return get_all_idx80_tickers()
 
     class Config:
         case_sensitive = True

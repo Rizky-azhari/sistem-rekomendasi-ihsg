@@ -34,7 +34,8 @@ Base = declarative_base()
 # Initialize Supabase Python Client (REST API)
 supabase_client: Optional[Any] = None
 supabase_url = settings.SUPABASE_URL or os.getenv("SUPABASE_URL", "")
-supabase_key = settings.SUPABASE_SECRET_KEY or os.getenv("SUPABASE_SECRET_KEY", "") or settings.SUPABASE_KEY or os.getenv("SUPABASE_KEY", "")
+# Prioritize valid publishable key; invalid secret keys will fail with 401 Unregistered API key
+supabase_key = settings.SUPABASE_KEY or os.getenv("SUPABASE_KEY", "") or settings.SUPABASE_SECRET_KEY or os.getenv("SUPABASE_SECRET_KEY", "")
 
 if supabase_url and supabase_key:
     try:
@@ -43,6 +44,7 @@ if supabase_url and supabase_key:
         print("[DB] Supabase Python Client connected successfully via HTTPS.")
     except Exception as e:
         print(f"[DB] Warning: Could not initialize Supabase client: {e}")
+
 
 if DATABASE_URL:
     try:
@@ -95,18 +97,10 @@ def get_supabase():
 
 def get_supabase_admin():
     """
-    Returns an isolated Supabase client initialized directly with SUPABASE_SECRET_KEY,
-    guaranteeing unpolluted admin access for auth.admin operations.
+    Returns an isolated Supabase client initialized with valid key.
     """
-    url = settings.SUPABASE_URL or os.getenv("SUPABASE_URL", "")
-    secret_key = settings.SUPABASE_SECRET_KEY or os.getenv("SUPABASE_SECRET_KEY", "") or settings.SUPABASE_KEY or os.getenv("SUPABASE_KEY", "")
-    if url and secret_key:
-        try:
-            from supabase import create_client  # type: ignore
-            return create_client(url, secret_key)
-        except Exception as e:
-            print(f"[DB] Error creating fresh admin Supabase client: {e}")
     return supabase_client
+
 
 
 def init_db():

@@ -1,13 +1,21 @@
-from fastapi import APIRouter, Query
+"""
+Screening API — IDX80 Only
+============================
+Stock screener endpoints restricted to IDX80 universe.
+"""
+
+from fastapi import APIRouter, Query, HTTPException
 from typing import List, Optional
 import pandas as pd
 from app.services.yfinance_service import fetch_stock_info, fetch_stock_history
 from app.engine.indicators import calculate_technical_indicators
-from app.engine.rules import evaluate_rules
 from app.schemas.recommendation import ScreenerResultItem
 from app.core.config import settings
+from app.config.idx80_tickers import IDX80_TICKERS, is_idx80, normalize_ticker
+from app.core.idx80_validator import validate_ticker, IDX80ValidationError
 
 router = APIRouter()
+
 
 @router.get("", response_model=List[ScreenerResultItem])
 def screen_stocks(
@@ -17,13 +25,8 @@ def screen_stocks(
     sort_by: str = Query("total_score", description="Sort by column: total_score, change_percentage, current_price")
 ):
     from app.screener.batch_scanner_engine import BatchScannerEngine
-    from app.universe.stock_universe_manager import StockUniverseManager
 
-    # Retrieve all active stocks directly from stock_universe database table
-    universe_stocks = StockUniverseManager.fetch_all_idx_stocks()
-    total_found = len(universe_stocks)
-
-    # Fetch scanned results
+    # Fetch scanned results (IDX80 only)
     scanned = BatchScannerEngine.get_scanned_results(
         recommendation_filter=signal,
         min_score=min_score,
@@ -38,7 +41,7 @@ def screen_stocks(
         results.append(ScreenerResultItem(
             symbol=item["symbol"],
             name=item.get("name") or item["symbol"].replace(".JK", ""),
-            sector=item.get("sector") or "IDX Stock",
+            sector=item.get("sector") or "IDX Equities",
             current_price=float(item.get("price") or 0.0),
             change_percentage=float(item.get("change_percentage") or 0.0),
             signal=item.get("recommendation") or "HOLD",
@@ -49,10 +52,6 @@ def screen_stocks(
         ))
 
     total_success = len(results)
-    total_failed = max(0, total_found - total_success)
-
-    print(f"Total saham ditemukan: {total_found}")
-    print(f"Total saham berhasil dianalisis: {total_success}")
-    print(f"Total saham gagal: {total_failed}")
+    print(f"[Screening] IDX80 screener: {total_success} saham returned (universe: {len(IDX80_TICKERS)})")
 
     return results

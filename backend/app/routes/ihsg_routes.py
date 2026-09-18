@@ -1,3 +1,9 @@
+"""
+IHSG Stock Recommendation Routes — IDX80 Only
+================================================
+All stock analysis routes restricted to IDX80 universe.
+"""
+
 import sys
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -9,7 +15,7 @@ BACKEND_DIR = str(Path(__file__).resolve().parent.parent.parent)
 if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
-from app.services.yahoo import get_all_stocks, get_historical_data, normalize_symbol, DEFAULT_IHSG_SYMBOLS
+from app.services.yahoo import get_all_stocks, get_historical_data, normalize_ticker, DEFAULT_IHSG_SYMBOLS
 from app.services.analysis import perform_stock_analysis
 from app.indicators.technical_indicator import TechnicalIndicators
 from app.screener.stock_screener import run_screener, screen_stock_rules
@@ -17,6 +23,8 @@ from app.recommendation.recommendation_engine import RecommendationEngine, get_r
 from app.trading_plan.trading_plan_generator import TradingPlanGenerator, generate_trading_plan_dict
 from app.universe.stock_universe_manager import StockUniverseManager
 from app.screener.batch_scanner_engine import BatchScannerEngine
+from app.config.idx80_tickers import IDX80_TICKERS, IDX80_METADATA, is_idx80
+from app.core.idx80_validator import validate_ticker, IDX80ValidationError
 
 router = APIRouter(tags=["IHSG Stock Recommendation"])
 
@@ -41,17 +49,17 @@ class TradingPlanInput(BaseModel):
 
 
 # ------------------------------------------------------------------------------
-# 0. Universe Endpoints & Batch Scanner Controls
+# 0. Universe Endpoints & Batch Scanner Controls (IDX80)
 # ------------------------------------------------------------------------------
-@router.get("/universe/stats", summary="Statistik Stock Universe IHSG")
+@router.get("/universe/stats", summary="Statistik Stock Universe IDX80")
 def get_universe_stats():
     """
-    Menampilkan statistik universe saham IDX:
-    - total_universe (951+ emiten)
+    Menampilkan statistik universe saham IDX80:
+    - total_universe (80 emiten)
     - active_stocks
     - inactive_stocks
     - last_update
-    - display_label (contoh: 800+ Emiten IDX)
+    - display_label
     """
     try:
         return StockUniverseManager.get_universe_stats()
@@ -59,31 +67,31 @@ def get_universe_stats():
         raise HTTPException(status_code=500, detail=f"Gagal mengambil statistik universe: {str(e)}")
 
 
-@router.post("/universe/sync", summary="Sinkronisasi Stock Universe IDX ke Database")
+@router.post("/universe/sync", summary="Sinkronisasi Stock Universe IDX80 ke Database")
 def sync_stock_universe():
     """
-    Menjalankan sinkronisasi database dari sumber data IDX (Priority A -> B -> C).
-    Memperbarui tabel stock_universe, mendeteksi IPO baru, dan update status aktif.
+    Seeds/updates idx80_stocks table with IDX80 constituent data.
+    No external API calls — uses the hardcoded IDX80 config.
     """
     try:
         report = StockUniverseManager.sync_to_database()
         return {
             "status": "success",
-            "message": f"Sinkronisasi berhasil: {report['total_universe']} saham terdaftar.",
+            "message": f"Sinkronisasi berhasil: {report['total_universe']} saham IDX80 terdaftar.",
             "report": report
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gagal sinkronisasi universe: {str(e)}")
 
 
-@router.get("/screener/progress", summary="Progress Status Scanning Saham Universe")
+@router.get("/screener/progress", summary="Progress Status Scanning IDX80")
 def get_scanning_progress():
     """
     Menampilkan status scanning real-time:
     - is_running
     - current_index
-    - total_stocks
-    - progress_message (contoh: 'Scanning Progress: 245 / 900 saham selesai')
+    - total_stocks (80 IDX80)
+    - progress_message
     - percent
     """
     try:
@@ -92,13 +100,12 @@ def get_scanning_progress():
         raise HTTPException(status_code=500, detail=f"Gagal mengambil progress: {str(e)}")
 
 
-@router.post("/screener/start-scan", summary="Mulai Scanning Seluruh Saham Universe (Batch 50)")
+@router.post("/screener/start-scan", summary="Mulai Scanning Seluruh Saham IDX80")
 def start_universe_scan(limit: Optional[int] = Query(None, description="Opsional limit saham untuk discan")):
     """
-    Memulai scanning seluruh emiten di Bursa Efek Indonesia secara asynchronous background.
-    - Batch size 50 saham
-    - Multi-threading concurrent
-    - 5 Screener Rule + Recommendation Engine
+    Memulai scanning IDX80 secara asynchronous background.
+    - Uses batch yf.download() for efficient data retrieval
+    - Only 80 stocks (not 900+)
     """
     try:
         result = BatchScannerEngine.start_universe_scan(max_stocks=limit)
@@ -108,13 +115,12 @@ def start_universe_scan(limit: Optional[int] = Query(None, description="Opsional
 
 
 # ------------------------------------------------------------------------------
-# 1. GET /stocks — Menampilkan daftar saham
+# 1. GET /stocks — Menampilkan daftar saham IDX80
 # ------------------------------------------------------------------------------
-@router.get("/stocks", response_model=List[Dict[str, Any]], summary="Daftar Saham IHSG")
+@router.get("/stocks", response_model=List[Dict[str, Any]], summary="Daftar Saham IDX80")
 def get_stocks_list():
     """
-    Menampilkan daftar saham IHSG (BBCA.JK, BBRI.JK, BMRI.JK, dll)
-    beserta informasi harga terkini, perubahan, dan volume.
+    Menampilkan daftar saham IDX80 beserta informasi harga terkini.
     """
     try:
         stocks = get_all_stocks()
@@ -124,24 +130,27 @@ def get_stocks_list():
 
 
 # ------------------------------------------------------------------------------
-# 2. GET /stock/{symbol} — Menampilkan data historis
+# 2. GET /stock/{symbol} — Menampilkan data historis (IDX80 validated)
 # ------------------------------------------------------------------------------
-@router.get("/stock/{symbol}", summary="Data Historis Saham")
+@router.get("/stock/{symbol}", summary="Data Historis Saham (IDX80)")
 def get_stock_historical(
     symbol: str,
     period: str = Query("1y", description="Rentang waktu data (contoh: 1mo, 3mo, 6mo, 1y, 2y, 5y)"),
     interval: str = Query("1d", description="Interval data (contoh: 1d, 1wk, 1mo)")
 ):
     """
-    Menampilkan data historis OHLCV saham dari Yahoo Finance.
-    Contoh: /stock/BBCA.JK atau /stock/BBCA
+    Menampilkan data historis OHLCV saham IDX80 dari Yahoo Finance.
     """
     try:
-        sym = normalize_symbol(symbol)
+        sym = validate_ticker(symbol)  # IDX80 validation gate
+    except IDX80ValidationError as e:
+        raise HTTPException(status_code=400, detail=e.message)
+
+    try:
         df = get_historical_data(sym, period=period, interval=interval)
         if df.empty:
             raise HTTPException(status_code=404, detail=f"Data historis untuk {sym} tidak ditemukan di Yahoo Finance.")
-        
+
         records = df.to_dict(orient="records")
         return {
             "symbol": sym,
@@ -157,24 +166,23 @@ def get_stock_historical(
 
 
 # ------------------------------------------------------------------------------
-# 3. GET /analysis/{symbol} — Analisis Indikator & Trend
+# 3. GET /analysis/{symbol} — Analisis Indikator & Trend (IDX80 validated)
 # ------------------------------------------------------------------------------
-@router.get("/analysis/{symbol}", summary="Analisis Teknikal dan Trend Saham")
+@router.get("/analysis/{symbol}", summary="Analisis Teknikal dan Trend Saham (IDX80)")
 def get_stock_technical_analysis(
     symbol: str,
     period: str = Query("1y", description="Rentang data historis untuk kalkulasi")
 ):
     """
-    Menampilkan analisis teknikal saham:
-    - harga terakhir
-    - MA20
-    - MA50
-    - MA200
-    - RSI
-    - trend (Uptrend, Downtrend, Sideways)
+    Menampilkan analisis teknikal saham IDX80.
     """
     try:
-        analysis = perform_stock_analysis(symbol, period=period)
+        sym = validate_ticker(symbol)  # IDX80 validation gate
+    except IDX80ValidationError as e:
+        raise HTTPException(status_code=400, detail=e.message)
+
+    try:
+        analysis = perform_stock_analysis(sym, period=period)
         return analysis
     except HTTPException:
         raise
@@ -183,26 +191,22 @@ def get_stock_technical_analysis(
 
 
 # ------------------------------------------------------------------------------
-# 4. GET /indicators/{symbol} — Technical Indicators Metrics JSON
+# 4. GET /indicators/{symbol} — Technical Indicators (IDX80 validated)
 # ------------------------------------------------------------------------------
-@router.get("/indicators/{symbol}", summary="Technical Indicators Metrics JSON")
+@router.get("/indicators/{symbol}", summary="Technical Indicators Metrics JSON (IDX80)")
 def get_technical_indicators_summary(
     symbol: str,
     period: str = Query("1y", description="Time period for indicator calculations")
 ):
     """
-    Menampilkan modul indikator teknikal:
-    - symbol
-    - price
-    - MA20
-    - MA50
-    - MA200
-    - RSI
-    - volume_ratio
-    - trend
+    Menampilkan modul indikator teknikal saham IDX80.
     """
     try:
-        sym = normalize_symbol(symbol)
+        sym = validate_ticker(symbol)  # IDX80 validation gate
+    except IDX80ValidationError as e:
+        raise HTTPException(status_code=400, detail=e.message)
+
+    try:
         df = get_historical_data(sym, period=period)
         if df.empty:
             raise HTTPException(status_code=404, detail=f"Data harga tidak ditemukan untuk {sym}")
@@ -215,21 +219,16 @@ def get_technical_indicators_summary(
 
 
 # ------------------------------------------------------------------------------
-# 5. GET /screener/rules — 5-Factor Rule Based Screener
+# 5. GET /screener/rules — 5-Factor Rule Based Screener (IDX80)
 # ------------------------------------------------------------------------------
-@router.get("/screener/rules", summary="5-Factor Rule Based Stock Screener")
+@router.get("/screener/rules", summary="5-Factor Rule Based Stock Screener (IDX80)")
 def get_rule_screener(
     filter: Optional[str] = Query(None, description="Filter rule: momentum, trend, oversold, breakout, trading_setup"),
     min_score: Optional[float] = Query(None, description="Minimum composite score"),
     sort_by: str = Query("composite_score", description="Sort by: composite_score, momentum_score, trend_score, breakout_score, oversold_score, trading_setup_score, price, change")
 ):
     """
-    Menjalankan Rule-Based Screener 5 Faktor pada Stock Universe:
-    1. Momentum (Close > MA20 & Volume > 20d Avg)
-    2. Trend (MA20 > MA50 > MA200)
-    3. Oversold (RSI < 35 & Harga dekat support)
-    4. Breakout (Close > 20d Highest High)
-    5. Trading Setup (Risk Reward >= 1:2)
+    Menjalankan Rule-Based Screener 5 Faktor pada IDX80 Stock Universe.
     """
     try:
         results = BatchScannerEngine.get_scanned_results(
@@ -239,6 +238,7 @@ def get_rule_screener(
         )
         return {
             "total_matches": len(results),
+            "universe": "IDX80",
             "filter_applied": filter,
             "results": results
         }
@@ -246,25 +246,29 @@ def get_rule_screener(
         raise
     except Exception as e:
         print(f"[Screener] Error in get_rule_screener: {e}")
-        # Return empty results instead of 500
         return {
             "total_matches": 0,
+            "universe": "IDX80",
             "filter_applied": filter,
             "results": [],
-            "error_message": f"Scanner belum tersedia. Klik 'Scan Semua IHSG' untuk memulai analisis. Detail: {str(e)[:100]}"
+            "error_message": f"Scanner belum tersedia. Klik 'Scan IDX80' untuk memulai analisis. Detail: {str(e)[:100]}"
         }
 
 
 # ------------------------------------------------------------------------------
-# 6. GET /screener/{symbol} — Detailed 5-Rule Evaluation for a single stock
+# 6. GET /screener/{symbol} — Detailed 5-Rule Evaluation (IDX80 validated)
 # ------------------------------------------------------------------------------
-@router.get("/screener/{symbol}", summary="Evaluasi 5 Rule untuk Saham Tertentu")
+@router.get("/screener/{symbol}", summary="Evaluasi 5 Rule untuk Saham IDX80")
 def get_single_stock_rules(symbol: str):
     """
-    Menampilkan evaluasi lengkap 5 Rule Screener untuk satu saham.
+    Menampilkan evaluasi lengkap 5 Rule Screener untuk satu saham IDX80.
     """
     try:
-        sym = normalize_symbol(symbol)
+        sym = validate_ticker(symbol)  # IDX80 validation gate
+    except IDX80ValidationError as e:
+        raise HTTPException(status_code=400, detail=e.message)
+
+    try:
         df = get_historical_data(sym, period="1y")
         if df.empty:
             raise HTTPException(status_code=404, detail=f"Data harga tidak ditemukan untuk {sym}")
@@ -277,27 +281,23 @@ def get_single_stock_rules(symbol: str):
 
 
 # ------------------------------------------------------------------------------
-# 7. GET /recommendation/{symbol} — Evaluasi Rekomendasi Berbasis 5 Skor Screener
+# 7. GET /recommendation/{symbol} — Rekomendasi (IDX80 validated)
 # ------------------------------------------------------------------------------
-@router.get("/recommendation/{symbol}", summary="Rekomendasi Saham berbasis 5 Skor Screener")
+@router.get("/recommendation/{symbol}", summary="Rekomendasi Saham IDX80 berbasis 5 Skor Screener")
 def get_stock_recommendation(symbol: str):
     """
-    Menghitung rekomendasi saham menggunakan Recommendation Engine:
-    Formula:
-      Final Score = Trend*25% + Momentum*25% + Breakout*20% + Oversold*10% + Trading Setup*20%
-    Output:
-      85 - 100 : STRONG BUY
-      70 - 84  : BUY
-      50 - 69  : HOLD
-      < 50     : SELL
-    Beserta alasan rekomendasi (contoh: BUY karena: - trend bullish, - volume meningkat, - breakout resistance).
+    Menghitung rekomendasi saham IDX80 menggunakan Recommendation Engine.
     """
     try:
-        sym = normalize_symbol(symbol)
+        sym = validate_ticker(symbol)  # IDX80 validation gate
+    except IDX80ValidationError as e:
+        raise HTTPException(status_code=400, detail=e.message)
+
+    try:
         df = get_historical_data(sym, period="1y")
         if df.empty:
             raise HTTPException(status_code=404, detail=f"Data harga tidak ditemukan untuk {sym}")
-        
+
         screen_res = screen_stock_rules(df, sym)
         scores = {
             "trend": screen_res["scores"]["trend_score"],
@@ -329,9 +329,7 @@ def get_stock_recommendation(symbol: str):
 @router.post("/recommendation/calculate", summary="Hitung Final Score & Rekomendasi dari Skor Screener")
 def calculate_recommendation_from_scores(input_data: ScreenerScoreInput):
     """
-    Menerima input 5 skor screener secara langsung:
-    Trend, Momentum, Breakout, Oversold, Trading Setup
-    Dan mengembalikan Final Score, Rekomendasi, dan Alasan Rekomendasi.
+    Menerima input 5 skor screener secara langsung dan mengembalikan rekomendasi.
     """
     try:
         scores = {
@@ -348,13 +346,12 @@ def calculate_recommendation_from_scores(input_data: ScreenerScoreInput):
 
 
 # ------------------------------------------------------------------------------
-# 9. GET /recommendations — Daftar Rekomendasi Saham IHSG
+# 9. GET /recommendations — Daftar Rekomendasi Saham IDX80
 # ------------------------------------------------------------------------------
-@router.get("/recommendations", summary="Daftar Rekomendasi Saham IHSG")
+@router.get("/recommendations", summary="Daftar Rekomendasi Saham IDX80")
 def get_all_recommendations():
     """
-    Menampilkan daftar rekomendasi saham-saham pilihan IHSG berdasarkan
-    evaluasi Recommendation Engine 5 faktor.
+    Menampilkan daftar rekomendasi saham IDX80 berdasarkan evaluasi 5 faktor.
     """
     try:
         results = BatchScannerEngine.get_scanned_results(limit=100)
@@ -382,33 +379,23 @@ def get_all_recommendations():
 
 
 # ------------------------------------------------------------------------------
-# 10. GET /trading-plan/{symbol} — Generate Trading Plan Otomatis untuk Saham
+# 10. GET /trading-plan/{symbol} — Trading Plan (IDX80 validated)
 # ------------------------------------------------------------------------------
-@router.get("/trading-plan/{symbol}", summary="Trading Plan Generator Saham (Support, Resistance, ATR, Volatility)")
+@router.get("/trading-plan/{symbol}", summary="Trading Plan Generator Saham IDX80")
 def get_stock_trading_plan(symbol: str):
     """
-    Menghasilkan Trading Plan otomatis berdasarkan:
-    - Support
-    - Resistance
-    - ATR (14 hari)
-    - Volatility (20 hari)
-    
-    Output:
-    {
-      "buy_area": "",
-      "stop_loss": "",
-      "tp1": "",
-      "tp2": "",
-      "tp3": "",
-      "risk_reward": ""
-    }
+    Menghasilkan Trading Plan otomatis untuk saham IDX80.
     """
     try:
-        sym = normalize_symbol(symbol)
+        sym = validate_ticker(symbol)  # IDX80 validation gate
+    except IDX80ValidationError as e:
+        raise HTTPException(status_code=400, detail=e.message)
+
+    try:
         df = get_historical_data(sym, period="1y")
         if df.empty:
             raise HTTPException(status_code=404, detail=f"Data harga tidak ditemukan untuk {sym}")
-        
+
         plan = TradingPlanGenerator.generate(df, symbol=sym)
         return {
             "symbol": sym,
@@ -422,21 +409,12 @@ def get_stock_trading_plan(symbol: str):
 
 
 # ------------------------------------------------------------------------------
-# 11. POST /trading-plan/generate — Hitung Trading Plan dari Parameter Tertentu
+# 11. POST /trading-plan/generate — Custom Trading Plan
 # ------------------------------------------------------------------------------
 @router.post("/trading-plan/generate", summary="Hitung Trading Plan dari Nilai Support, Resistance, ATR, Volatility")
 def generate_custom_trading_plan(input_data: TradingPlanInput):
     """
-    Menerima input Support, Resistance, ATR, Volatility secara langsung
-    dan mengembalikan Trading Plan dengan format standar:
-    {
-      "buy_area": "",
-      "stop_loss": "",
-      "tp1": "",
-      "tp2": "",
-      "tp3": "",
-      "risk_reward": ""
-    }
+    Menerima input Support, Resistance, ATR, Volatility dan mengembalikan Trading Plan.
     """
     try:
         plan = TradingPlanGenerator.generate_plan_from_values(
@@ -461,22 +439,18 @@ def generate_custom_trading_plan(input_data: TradingPlanInput):
 @router.get("/market/ihsg", summary="Data Indeks IHSG Gabungan Realtime")
 def get_ihsg_market_overview():
     """
-    Menampilkan data Indeks Harga Saham Gabungan (^JKSE):
-    - Harga terkini
-    - Perubahan poin & persentase
-    - Rentang harian (High / Low)
-    - Status pasar (Bullish / Bearish)
-    - Sparkline historis 15 hari
+    Menampilkan data Indeks Harga Saham Gabungan (^JKSE).
+    Note: ^JKSE is the composite index, not restricted to IDX80 validation.
     """
     import yfinance as yf
     try:
         ticker = yf.Ticker("^JKSE")
         hist = ticker.history(period="1mo", interval="1d")
-        
+
         if not hist.empty:
             last_row = hist.iloc[-1]
             prev_row = hist.iloc[-2] if len(hist) > 1 else last_row
-            
+
             price = round(float(last_row["Close"]), 2)
             prev_close = round(float(prev_row["Close"]), 2)
             change = round(price - prev_close, 2)
@@ -484,10 +458,9 @@ def get_ihsg_market_overview():
             high = round(float(last_row["High"]), 2)
             low = round(float(last_row["Low"]), 2)
             volume = int(last_row["Volume"]) if "Volume" in last_row else 0
-            
+
             sparkline = [round(float(c), 2) for c in hist["Close"].tail(15).tolist()]
         else:
-            # Safe realistic fallback
             price = 6436.85
             prev_close = 6461.15
             change = -24.30
@@ -513,7 +486,6 @@ def get_ihsg_market_overview():
             "sparkline": sparkline
         }
     except Exception as e:
-        # Fallback if Yahoo Finance times out
         return {
             "symbol": "^JKSE",
             "name": "IHSG (Indeks Harga Saham Gabungan)",
@@ -527,6 +499,3 @@ def get_ihsg_market_overview():
             "status": "BEARISH",
             "sparkline": [6410, 6425, 6430, 6450, 6465, 6480, 6470, 6455, 6460, 6475, 6461, 6436]
         }
-
-
-

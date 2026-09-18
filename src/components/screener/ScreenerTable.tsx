@@ -66,10 +66,10 @@ export const ScreenerTable: React.FC<ScreenerTableProps> = ({ items, onSelectSym
         <div>
           <h2 className="font-bold text-base sm:text-lg text-white flex items-center gap-2">
             <SlidersHorizontal className="h-5 w-5 text-[#22C7F0]" />
-            Screener & Ranking Saham IDX (951 Universe)
+            Screener & Ranking Saham (Indeks IDX80)
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Menampilkan {filteredItems.length} saham terfilter dari seluruh semesta emiten Bursa Efek Indonesia.
+            Menampilkan {filteredItems.length} saham terfilter dari 80 konstituen Indeks IDX80 Bursa Efek Indonesia.
           </p>
         </div>
 
