@@ -22,6 +22,7 @@ from app.config.idx80_tickers import IDX80_TICKERS, IDX80_METADATA, get_all_idx8
 from app.services.yahoo import batch_download_idx80, get_historical_data, normalize_ticker
 from app.screener.stock_screener import screen_stock_rules
 from app.recommendation.recommendation_engine import RecommendationEngine
+from app.screener.bandar_detector import evaluate_bandar_accumulation
 
 
 class BatchScannerEngine:
@@ -121,6 +122,9 @@ class BatchScannerEngine:
 
             volume = int(df["Volume"].iloc[-1]) if "Volume" in df.columns else 0
 
+            # Bandarmology & Smart Money Accumulation
+            bandar_res = evaluate_bandar_accumulation(df, ticker)
+
             result = {
                 "symbol": ticker,
                 "name": meta.get("company_name", ticker.replace(".JK", "")),
@@ -142,10 +146,16 @@ class BatchScannerEngine:
                 "oversold_score": screen_res["scores"]["oversold_score"],
                 "trading_setup_score": screen_res["scores"]["trading_setup_score"],
                 "rules_passed": screen_res["rules_passed"],
+                "bandar_status": bandar_res.get("status", "NETRAL"),
+                "bandar_score": bandar_res.get("score", 50.0),
+                "bandar_volume_ratio": bandar_res.get("volume_ratio", 1.0),
+                "bandar_action": bandar_res.get("action", "Netral"),
+                "bandar_details": bandar_res.get("details", ""),
                 "details": {
                     "stop_loss": screen_res["breakdowns"]["trading_setup"].get("stop_loss"),
                     "target_price": screen_res["breakdowns"]["trading_setup"].get("target_price"),
-                    "risk_reward": screen_res["breakdowns"]["trading_setup"].get("risk_reward_formatted")
+                    "risk_reward": screen_res["breakdowns"]["trading_setup"].get("risk_reward_formatted"),
+                    "bandar": bandar_res
                 }
             }
 
@@ -302,10 +312,16 @@ class BatchScannerEngine:
             rf = recommendation_filter.upper()
             results = [r for r in results if r.get("recommendation") == rf]
 
-        # 2. Filter by specific rule passed
+        # 2. Filter by specific rule passed or bandar accumulation
         if rule_filter:
             rule_key = rule_filter.lower()
-            results = [r for r in results if r.get("rules_passed", {}).get(rule_key, False)]
+            if rule_key in ("bandar", "akumulasi", "bandar_akumulasi", "smart_money"):
+                results = [
+                    r for r in results
+                    if "AKUMULASI" in str(r.get("bandar_status", "")) or r.get("bandar_score", 0) >= 60
+                ]
+            else:
+                results = [r for r in results if r.get("rules_passed", {}).get(rule_key, False)]
 
         # 3. Filter by minimum score
         if min_score is not None:
@@ -316,6 +332,8 @@ class BatchScannerEngine:
             results.sort(key=lambda x: x["price"], reverse=True)
         elif sort_by == "change":
             results.sort(key=lambda x: x.get("change_percentage", 0.0), reverse=True)
+        elif sort_by in ["bandar_score", "bandar", "akumulasi"]:
+            results.sort(key=lambda x: x.get("bandar_score", 0.0), reverse=True)
         elif sort_by in ["momentum_score", "momentum"]:
             results.sort(key=lambda x: x.get("momentum_score", 0.0), reverse=True)
         elif sort_by in ["trend_score", "trend"]:

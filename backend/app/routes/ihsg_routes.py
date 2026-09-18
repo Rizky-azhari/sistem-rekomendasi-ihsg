@@ -256,6 +256,35 @@ def get_rule_screener(
 
 
 # ------------------------------------------------------------------------------
+# 5b. GET /screener/bandar-accumulation — Saham Akumulasi Bandar (IDX80)
+# ------------------------------------------------------------------------------
+@router.get("/screener/bandar-accumulation", summary="Daftar Saham Sedang Diakumulasi Bandar (IDX80)")
+def get_bandar_accumulation_stocks(
+    limit: Optional[int] = Query(20, description="Maksimum jumlah saham yang dikembalikan"),
+    min_score: Optional[float] = Query(60.0, description="Minimum bandar accumulation score")
+):
+    """
+    Menampilkan daftar saham IDX80 yang terdeteksi sedang dalam fase akumulasi bandar (Smart Money Accumulation).
+    """
+    try:
+        results = BatchScannerEngine.get_scanned_results(
+            rule_filter="bandar",
+            min_score=None,
+            sort_by="bandar_score"
+        )
+        if min_score:
+            results = [r for r in results if r.get("bandar_score", 0) >= min_score]
+
+        return {
+            "total_accumulated": len(results),
+            "universe": "IDX80",
+            "results": results[:limit] if limit else results
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal mengambil saham akumulasi bandar: {str(e)}")
+
+
+# ------------------------------------------------------------------------------
 # 6. GET /screener/{symbol} — Detailed 5-Rule Evaluation (IDX80 validated)
 # ------------------------------------------------------------------------------
 @router.get("/screener/{symbol}", summary="Evaluasi 5 Rule untuk Saham IDX80")

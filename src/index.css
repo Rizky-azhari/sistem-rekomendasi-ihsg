@@ -64,3 +64,24 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #22C7F0;
 }
+
+/* Horizontal Running Live Stock Ticker Animation */
+@keyframes tickerLoop {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-ticker {
+  display: inline-flex;
+  width: max-content;
+  will-change: transform;
+  animation: tickerLoop 45s linear infinite;
+}
+
+.animate-ticker:hover {
+  animation-play-state: paused;
+}

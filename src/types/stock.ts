@@ -134,6 +134,11 @@ export interface ScreenerRuleItem {
   breakout_score: number;
   oversold_score: number;
   trading_setup_score: number;
+  bandar_status?: 'AKUMULASI MASIF' | 'AKUMULASI NORMAL' | 'NETRAL' | 'DISTRIBUSI' | string;
+  bandar_score?: number;
+  bandar_volume_ratio?: number;
+  bandar_action?: string;
+  bandar_details?: string;
   rules_passed?: {
     momentum: boolean;
     trend: boolean;

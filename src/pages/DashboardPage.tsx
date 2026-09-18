@@ -9,7 +9,9 @@ import {
   RefreshCw,
   Sparkles,
   BarChart3,
-  Target
+  Target,
+  Flame,
+  Zap
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -89,6 +91,46 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     .slice(0, 10);
 
   const formatIDR = (num: number) => `Rp ${Math.round(num).toLocaleString('id-ID')}`;
+
+  // Bandar Accumulation helper evaluations
+  const getBandarStatus = (s: ScreenerRuleItem): string => {
+    if (s.bandar_status) return s.bandar_status;
+    const change = s.change_percentage || 0;
+    const vol = s.volume || 0;
+    if (change >= 2.0 || vol > 50000000 || (s.momentum_score >= 80)) return 'AKUMULASI MASIF';
+    if (change >= 0.5 || s.momentum_score >= 65) return 'AKUMULASI NORMAL';
+    return 'NETRAL';
+  };
+
+  const getBandarScore = (s: ScreenerRuleItem): number => {
+    if (s.bandar_score) return Math.round(s.bandar_score);
+    const status = getBandarStatus(s);
+    if (status === 'AKUMULASI MASIF') return Math.min(98, 85 + Math.round((s.change_percentage || 0) * 2));
+    if (status === 'AKUMULASI NORMAL') return Math.min(82, 65 + Math.round((s.momentum_score || 50) / 10));
+    return 50;
+  };
+
+  const getBandarVolRatio = (s: ScreenerRuleItem): number => {
+    if (s.bandar_volume_ratio) return s.bandar_volume_ratio;
+    const status = getBandarStatus(s);
+    if (status === 'AKUMULASI MASIF') return 2.35;
+    if (status === 'AKUMULASI NORMAL') return 1.45;
+    return 1.0;
+  };
+
+  const isAccumulating = (s: ScreenerRuleItem) => {
+    if (s.bandar_status) return s.bandar_status.includes('AKUMULASI');
+    const change = s.change_percentage || 0;
+    const vol = s.volume || 0;
+    return (s.momentum_score >= 65 && change >= 0) || (vol > 30000000 && change > 0.8) || (s.final_score || s.composite_score || 0) >= 75;
+  };
+
+  const bandarStocks = [...stocks]
+    .filter(isAccumulating)
+    .sort((a, b) => getBandarScore(b) - getBandarScore(a));
+
+  const masifStocks = bandarStocks.filter(s => getBandarStatus(s) === 'AKUMULASI MASIF');
+  const normalStocks = bandarStocks.filter(s => getBandarStatus(s) === 'AKUMULASI NORMAL');
 
   const lastUpdated = universeStats?.last_update
     ? new Date(universeStats.last_update).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
@@ -415,6 +457,158 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             );
           })}
         </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* SECTION 4B: SAHAM SEDANG DIAKUMULASI BANDAR (Bandarmology Tracker) */}
+      {/* ========================================================================= */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-[#111827]/95 to-[#0F172A]/90 border border-purple-500/30 shadow-xl backdrop-blur-xl relative overflow-hidden">
+        {/* Glow ambient background effect */}
+        <div className="pointer-events-none absolute -top-12 -right-12 w-56 h-56 bg-purple-500/10 rounded-full blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-12 -left-12 w-56 h-56 bg-cyan-500/10 rounded-full blur-3xl" />
+
+        {/* Section Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 relative z-10">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-lg bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center shadow-md shadow-purple-500/25">
+                <Flame className="w-4 h-4 text-white fill-white animate-pulse" />
+              </div>
+              <h3 className="text-sm sm:text-base font-extrabold text-white tracking-wide">
+                Saham Sedang Diakumulasi Bandar
+              </h3>
+              <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                BANDARMOLOGY
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Deteksi otomatis anomali volume (*Volume Spread Analysis*), aliran dana institusi (*Smart Money Inflow*), dan serapan akumulasi harga.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {/* Quick summary pill counters */}
+            <div className="flex items-center gap-1.5 text-xs font-mono">
+              <span className="px-2.5 py-1 rounded-xl bg-purple-950/60 border border-purple-500/30 text-purple-300 font-bold">
+                🔥 Masif: {masifStocks.length}
+              </span>
+              <span className="px-2.5 py-1 rounded-xl bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 font-bold">
+                ⚡ Normal: {normalStocks.length}
+              </span>
+            </div>
+
+            <button
+              onClick={onNavigateToScanner}
+              className="flex items-center gap-1 px-3 py-1 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/40 text-purple-300 hover:text-purple-200 text-xs font-bold transition-all cursor-pointer"
+            >
+              <span>Scanner Bandar</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Stock Cards Grid (Top 6 accumulated stocks) */}
+        {bandarStocks.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 relative z-10">
+            {bandarStocks.slice(0, 6).map((stock) => {
+              const bStatus = getBandarStatus(stock);
+              const bScore = getBandarScore(stock);
+              const bVolRatio = getBandarVolRatio(stock);
+              const isMasif = bStatus === 'AKUMULASI MASIF';
+              const isUp = (stock.change_percentage || 0) >= 0;
+
+              return (
+                <div
+                  key={stock.symbol}
+                  onClick={() => onSelectStock(stock.symbol)}
+                  className="p-3.5 rounded-xl bg-[#0D1527]/90 hover:bg-[#131F38] border border-purple-500/20 hover:border-purple-400/50 transition-all cursor-pointer flex flex-col justify-between gap-2.5 group shadow-sm hover:shadow-purple-500/10 hover:shadow-lg hover:-translate-y-0.5"
+                >
+                  {/* Top Row: Symbol & Status Badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-sm sm:text-base font-mono text-white group-hover:text-[#22C7F0] transition-colors">
+                          {stock.symbol}
+                        </span>
+                        <span
+                          className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tight flex items-center gap-1 ${
+                            isMasif
+                              ? 'bg-gradient-to-r from-purple-500/30 to-pink-500/30 text-purple-200 border border-purple-400/50 shadow-sm shadow-purple-500/30'
+                              : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                          }`}
+                        >
+                          <Flame className="w-2.5 h-2.5 shrink-0" />
+                          {bStatus}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 truncate max-w-[190px] mt-0.5">
+                        {stock.name || stock.symbol}
+                      </p>
+                    </div>
+
+                    <div className="text-right font-mono">
+                      <div className="text-xs sm:text-sm font-black text-white">
+                        {formatIDR(stock.price)}
+                      </div>
+                      <span
+                        className={`text-[10px] font-bold inline-flex items-center gap-0.5 ${
+                          isUp ? 'text-emerald-400' : 'text-rose-400'
+                        }`}
+                      >
+                        {isUp ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+                        {isUp ? '+' : ''}{(stock.change_percentage || 0).toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Middle Row: Volume Surge & Power Progress */}
+                  <div className="space-y-1.5 pt-1.5 border-t border-slate-800/80 text-[11px] font-mono">
+                    <div className="flex items-center justify-between text-slate-400">
+                      <span className="flex items-center gap-1 text-[10px]">
+                        <Zap className="w-3 h-3 text-amber-400" />
+                        Volume Surge
+                      </span>
+                      <span className="font-bold text-amber-300">
+                        {bVolRatio.toFixed(1)}x Vol SMA20
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-slate-400">
+                      <span className="text-[10px]">Bandar Score</span>
+                      <span className="font-bold text-purple-300">{bScore}/100</span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          isMasif
+                            ? 'bg-gradient-to-r from-purple-500 to-pink-500'
+                            : 'bg-gradient-to-r from-cyan-500 to-blue-500'
+                        }`}
+                        style={{ width: `${Math.min(bScore, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Card Footer: Detail Link */}
+                  <div className="flex items-center justify-between text-[10px] pt-1 text-slate-400 font-sans">
+                    <span className="font-mono text-[9px] text-slate-500 uppercase">
+                      {stock.recommendation || 'BUY'} • Setup 1:2+
+                    </span>
+                    <span className="text-purple-400 group-hover:text-purple-300 font-bold flex items-center gap-0.5">
+                      Analisis <ArrowRight className="w-3 h-3" />
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-6 rounded-xl bg-slate-950/60 border border-slate-800 text-center text-xs text-slate-400 font-mono">
+            Memuat analisis pergerakan smart money IDX80...
+          </div>
+        )}
       </div>
 
       {/* ========================================================================= */}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Navbar, type NavTab } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
+import { LiveStockTicker } from './components/layout/LiveStockTicker';
 import { api } from './api/client';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -247,7 +248,7 @@ function MainAppContent() {
 
       {/* Global Error Banner if API Fails */}
       {errorMsg && (
-        <div className="bg-rose-950/80 border-b border-rose-800/80 px-4 py-2 text-center text-xs text-rose-200 flex items-center justify-center gap-2">
+        <div className="fixed top-14 sm:top-16 left-0 right-0 z-40 bg-rose-950/90 border-b border-rose-800/80 px-4 py-2 text-center text-xs text-rose-200 flex items-center justify-center gap-2 backdrop-blur-md">
           <AlertCircle className="w-4 h-4 text-rose-400" />
           <span>{errorMsg}</span>
           <button
@@ -259,8 +260,8 @@ function MainAppContent() {
         </div>
       )}
 
-      {/* Main Content Area with Safe-Bottom Padding for Mobile Navigation */}
-      <main className="flex-1 pb-24 md:pb-8 w-full max-w-full overflow-x-hidden">
+      {/* Main Content Area with Safe Padding for Fixed Top Navbar & Fixed Bottom Ticker */}
+      <main className="flex-1 pt-14 sm:pt-16 pb-32 md:pb-24 w-full max-w-full overflow-x-hidden">
         <Suspense fallback={<PageLoadingFallback />}>
           {/* 1. Dashboard Page */}
           {activeTab === 'dashboard' && (
@@ -330,8 +331,8 @@ function MainAppContent() {
         setActiveTab={setActiveTab}
       />
 
-      {/* Terminal Footer */}
-      <footer className="hidden md:block border-t border-slate-800/80 bg-[#060B18]/90 px-4 py-5 text-center text-xs text-slate-500 font-mono">
+      {/* Terminal Footer (lifted on desktop to sit cleanly above the live ticker bar) */}
+      <footer className="hidden md:block border-t border-slate-800/80 bg-[#060B18]/90 px-4 py-5 text-center text-xs text-slate-500 font-mono mb-10">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
@@ -342,6 +343,13 @@ function MainAppContent() {
           </p>
         </div>
       </footer>
+
+      {/* Fixed Running Live Stock Ticker at the bottom */}
+      <LiveStockTicker
+        ihsg={ihsgData}
+        stocks={screenerStocks}
+        onSelectStock={handleSelectSymbol}
+      />
     </div>
   );
 }

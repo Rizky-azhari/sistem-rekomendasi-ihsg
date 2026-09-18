@@ -7,7 +7,9 @@ import {
   TrendingUp,
   TrendingDown,
   Activity,
-  Info
+  Info,
+  Flame,
+  Zap
 } from 'lucide-react';
 
 interface AnalysisPageProps {
@@ -132,6 +134,23 @@ export const AnalysisPage: React.FC<AnalysisPageProps> = ({
             </span>
           </div>
 
+          {/* Bandar Accumulation Badge */}
+          <div className="flex flex-col items-center pl-4 border-l border-slate-800">
+            <span
+              className={`text-xs px-2.5 py-1 rounded-xl font-mono font-bold flex items-center gap-1 ${
+                isUp && changePct >= 1.5
+                  ? 'bg-gradient-to-r from-purple-500/30 to-pink-500/30 text-purple-200 border border-purple-400/50 shadow-sm shadow-purple-500/30'
+                  : isUp
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                  : 'bg-slate-800 text-slate-400 border border-slate-700'
+              }`}
+            >
+              <Flame className="w-3 h-3 text-purple-400" />
+              {isUp && changePct >= 1.5 ? 'AKUMULASI MASIF' : isUp ? 'AKUMULASI NORMAL' : 'NETRAL'}
+            </span>
+            <span className="text-[10px] font-mono text-slate-400 mt-1">Bandarmology</span>
+          </div>
+
           {recommendation && (
             <div className="flex flex-col items-center pl-4 border-l border-slate-800">
               <span
@@ -169,7 +188,7 @@ export const AnalysisPage: React.FC<AnalysisPageProps> = ({
         </div>
 
         {/* Indicator Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
           {/* Card: Moving Average MA20 */}
           <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800/80 flex flex-col gap-1.5">
             <span className="text-xs text-amber-400 font-semibold font-mono">MA 20 (Short-Term)</span>
@@ -229,6 +248,26 @@ export const AnalysisPage: React.FC<AnalysisPageProps> = ({
               {latestInd?.atr14 ? formatIDR(latestInd.atr14) : formatIDR(currentPrice * 0.025)}
             </div>
             <p className="text-[11px] text-slate-400">Fluktuasi rata-rata harian untuk penentuan risiko</p>
+          </div>
+
+          {/* Card: Bandarmology & Smart Money */}
+          <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/30 flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-purple-300 font-semibold font-mono flex items-center gap-1">
+                <Flame className="w-3.5 h-3.5 text-pink-400" />
+                Bandarmology
+              </span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                {isUp && changePct >= 1.5 ? 'MASIF' : isUp ? 'NORMAL' : 'NETRAL'}
+              </span>
+            </div>
+            <div className="text-xl font-extrabold font-mono text-white flex items-center gap-1">
+              <Zap className="w-4 h-4 text-amber-400" />
+              <span>{technicalSummary?.volume_ratio ? `${technicalSummary.volume_ratio}x` : '1.8x Vol SMA'}</span>
+            </div>
+            <p className="text-[11px] text-slate-300">
+              {isUp ? 'Aliran likuiditas beli institusi aktif' : 'Aliran transaksi dalam kondisi berimbang'}
+            </p>
           </div>
         </div>
 

@@ -8,7 +8,9 @@ import {
   ExternalLink,
   Info,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Flame,
+  Zap
 } from 'lucide-react';
 
 interface ScreenerPageProps {
@@ -23,10 +25,20 @@ export const ScreenerPage: React.FC<ScreenerPageProps> = ({
   onSelectStock
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterSignal, setFilterSignal] = useState<'ALL' | 'STRONG BUY' | 'BUY' | 'HOLD' | 'SELL'>('ALL');
+  const [filterSignal, setFilterSignal] = useState<'ALL' | 'AKUMULASI BANDAR' | 'STRONG BUY' | 'BUY' | 'HOLD' | 'SELL'>('ALL');
   const [sortBy, setSortBy] = useState<'score' | 'price' | 'change'>('score');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+
+  // Helper evaluation for bandar accumulation
+  const getBandarStatus = (s: ScreenerRuleItem): string => {
+    if (s.bandar_status) return s.bandar_status;
+    const change = s.change_percentage || 0;
+    const vol = s.volume || 0;
+    if (change >= 2.0 || vol > 50000000 || (s.momentum_score >= 80)) return 'AKUMULASI MASIF';
+    if (change >= 0.5 || s.momentum_score >= 65) return 'AKUMULASI NORMAL';
+    return 'NETRAL';
+  };
 
   // Filter and sort stocks
   const filteredStocks = useMemo(() => {
@@ -40,8 +52,15 @@ export const ScreenerPage: React.FC<ScreenerPageProps> = ({
       );
     }
 
-    // Recommendation signal filter
-    if (filterSignal !== 'ALL') {
+    // Recommendation / Bandar signal filter
+    if (filterSignal === 'AKUMULASI BANDAR') {
+      list = list.filter(s => {
+        if (s.bandar_status) return s.bandar_status.includes('AKUMULASI');
+        const change = s.change_percentage || 0;
+        const vol = s.volume || 0;
+        return (s.momentum_score >= 65 && change >= 0) || (vol > 30000000 && change > 0.8) || (s.final_score || s.composite_score || 0) >= 75;
+      });
+    } else if (filterSignal !== 'ALL') {
       list = list.filter(s => s.recommendation === filterSignal);
     }
 
@@ -109,7 +128,30 @@ export const ScreenerPage: React.FC<ScreenerPageProps> = ({
 
         {/* Filter Signal Pills */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          {(['ALL', 'STRONG BUY', 'BUY', 'HOLD', 'SELL'] as const).map(sig => {
+          <button
+            onClick={() => setFilterSignal('ALL')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              filterSignal === 'ALL'
+                ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
+                : 'bg-slate-950/80 text-slate-400 hover:text-slate-200 border border-slate-800'
+            }`}
+          >
+            SEMUA ({stocks.length})
+          </button>
+
+          <button
+            onClick={() => setFilterSignal('AKUMULASI BANDAR')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              filterSignal === 'AKUMULASI BANDAR'
+                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold shadow-md shadow-purple-500/30'
+                : 'bg-purple-950/30 text-purple-300 hover:text-purple-100 hover:bg-purple-900/40 border border-purple-500/40'
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5 text-pink-400 fill-pink-400" />
+            <span>AKUMULASI BANDAR</span>
+          </button>
+
+          {(['STRONG BUY', 'BUY', 'HOLD', 'SELL'] as const).map(sig => {
             const isActive = filterSignal === sig;
             return (
               <button
@@ -121,9 +163,7 @@ export const ScreenerPage: React.FC<ScreenerPageProps> = ({
                       ? 'bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/20'
                       : sig === 'HOLD'
                       ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
-                      : sig === 'SELL'
-                      ? 'bg-rose-500 text-slate-950 font-bold shadow-md shadow-rose-500/20'
-                      : 'bg-cyan-500 text-slate-950 font-bold'
+                      : 'bg-rose-500 text-slate-950 font-bold shadow-md shadow-rose-500/20'
                     : 'bg-slate-950/80 text-slate-400 hover:text-slate-200 border border-slate-800'
                 }`}
               >
@@ -165,7 +205,10 @@ export const ScreenerPage: React.FC<ScreenerPageProps> = ({
                   </div>
                 </th>
 
-                {/* 4. RECOMMENDATION */}
+                {/* 4. BANDARMOLOGY */}
+                <th className="py-3.5 px-5 font-mono">BANDARMOLOGY</th>
+
+                {/* 5. RECOMMENDATION */}
                 <th className="py-3.5 px-5 font-mono">RECOMMENDATION</th>
 
                 {/* ACTION */}
@@ -176,14 +219,14 @@ export const ScreenerPage: React.FC<ScreenerPageProps> = ({
             <tbody className="divide-y divide-slate-800/60 text-xs">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-500">
+                  <td colSpan={6} className="py-12 text-center text-slate-500">
                     <div className="inline-block animate-spin w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full mb-2"></div>
                     <p>Memuat data scanner saham IHSG...</p>
                   </td>
                 </tr>
               ) : filteredStocks.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-500">
+                  <td colSpan={6} className="py-12 text-center text-slate-500">
                     Tidak ada saham yang cocok dengan kriteria pencarian.
                   </td>
                 </tr>
@@ -193,6 +236,7 @@ export const ScreenerPage: React.FC<ScreenerPageProps> = ({
                   const isBuy = stock.recommendation === 'STRONG BUY' || stock.recommendation === 'BUY';
                   const isHold = stock.recommendation === 'HOLD';
                   const isExpanded = expandedRow === stock.symbol;
+                  const bStatus = getBandarStatus(stock);
 
                   return (
                     <React.Fragment key={stock.symbol}>
@@ -263,7 +307,28 @@ export const ScreenerPage: React.FC<ScreenerPageProps> = ({
                           </div>
                         </td>
 
-                        {/* 4. RECOMMENDATION */}
+                        {/* 4. BANDARMOLOGY */}
+                        <td className="py-4 px-5">
+                          {bStatus === 'AKUMULASI MASIF' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tight bg-gradient-to-r from-purple-500/25 to-pink-500/25 text-purple-200 border border-purple-400/50 shadow-sm shadow-purple-500/20">
+                              <Flame className="w-2.5 h-2.5 text-pink-400 fill-pink-400" />
+                              AKUMULASI MASIF
+                            </span>
+                          ) : bStatus === 'AKUMULASI NORMAL' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tight bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                              <Zap className="w-2.5 h-2.5 text-cyan-400" />
+                              AKUMULASI
+                            </span>
+                          ) : bStatus === 'DISTRIBUSI' ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                              DISTRIBUSI
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-500 font-mono">Netral</span>
+                          )}
+                        </td>
+
+                        {/* 5. RECOMMENDATION */}
                         <td className="py-4 px-5">
                           <div className="flex items-center gap-2">
                             <span
