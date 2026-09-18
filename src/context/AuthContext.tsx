@@ -26,6 +26,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const MASTER_ADMIN_EMAILS = [
+  'rizkyazhariputra2022@gmail.com',
+  'rizkyazhariputra336@gmail.com'
+];
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
@@ -46,7 +51,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .maybeSingle();
 
       if (!error && data) {
-        const userRole: UserRole = (data.role || 'user').toLowerCase() === 'admin' ? 'admin' : 'user';
+        const emailLower = (data.email || '').toLowerCase().trim();
+        const userRole: UserRole = MASTER_ADMIN_EMAILS.includes(emailLower) || (data.role || 'user').toLowerCase() === 'admin' ? 'admin' : 'user';
         const profile: UserProfile = {
           id: data.id,
           email: data.email,
@@ -63,7 +69,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // 2. Fallback via backend getMe()
       const backendProfile = await api.getMe();
       if (backendProfile) {
-        const userRole: UserRole = (backendProfile.role || 'user').toLowerCase() === 'admin' ? 'admin' : 'user';
+        const emailLower = (backendProfile.email || '').toLowerCase().trim();
+        const userRole: UserRole = MASTER_ADMIN_EMAILS.includes(emailLower) || (backendProfile.role || 'user').toLowerCase() === 'admin' ? 'admin' : 'user';
         const profile: UserProfile = {
           id: backendProfile.id,
           email: backendProfile.email,

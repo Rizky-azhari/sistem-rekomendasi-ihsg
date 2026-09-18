@@ -24,8 +24,27 @@ try:
 except ImportError:
     from backend.app.core.config import settings
 
+DEFAULT_POOLER_URL = "postgresql://postgres.ysuvtxkmofssjuttqhxi:%23Palabuhanratu123@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres"
+
+def resolve_database_url(url: str) -> str:
+    """
+    Ensures the database connection URL works across all network environments.
+    Direct Supabase host 'db.<ref>.supabase.co' only resolves to IPv6 addresses,
+    which fail on platforms like Vercel Serverless and IPv4-only networks with
+    'Cannot assign requested address' (OperationalError).
+    Automatically resolves to Supabase's official IPv4 Connection Pooler.
+    """
+    if not url:
+        return DEFAULT_POOLER_URL
+    if "db.ysuvtxkmofssjuttqhxi.supabase.co" in url:
+        url = url.replace("db.ysuvtxkmofssjuttqhxi.supabase.co", "aws-0-ap-northeast-1.pooler.supabase.com")
+        if "postgres:" in url and "postgres.ysuvtxkmofssjuttqhxi" not in url:
+            url = url.replace("postgres:", "postgres.ysuvtxkmofssjuttqhxi:")
+    return url
+
+
 # SQLAlchemy engine & session for Supabase PostgreSQL
-DATABASE_URL = settings.DATABASE_URL or os.getenv("DATABASE_URL", "")
+DATABASE_URL = resolve_database_url(settings.DATABASE_URL or os.getenv("DATABASE_URL", ""))
 
 engine = None
 SessionLocal = None
@@ -48,7 +67,7 @@ if supabase_url and supabase_key:
 
 if DATABASE_URL:
     try:
-        # connect_timeout prevents long freezes if network has IPv6 routing issues
+        # connect_timeout prevents long freezes if network has routing issues
         engine = create_engine(
             DATABASE_URL,
             pool_pre_ping=True,

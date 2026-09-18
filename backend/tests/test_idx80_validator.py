@@ -2,7 +2,13 @@
 Tests for IDX80 Validation Layer.
 """
 
+import sys
+from pathlib import Path
 import unittest
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
 from app.core.idx80_validator import (
     validate_ticker,
     validate_tickers,

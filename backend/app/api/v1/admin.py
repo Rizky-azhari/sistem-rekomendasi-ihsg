@@ -90,45 +90,81 @@ def update_user_role(
         "rizkyazhariputra336@gmail.com"
     ]
 
+    sb = get_supabase()
+    target_email = ""
+    updated = False
+
     try:
-        with engine.connect() as conn:
-            conn.execution_options(isolation_level="AUTOCOMMIT")
+        # Step 1: Resolve target user email via Supabase REST or Engine
+        if sb:
+            try:
+                res = sb.table("profiles").select("email, role").eq("id", user_id).limit(1).execute()
+                if res.data:
+                    target_email = res.data[0].get("email") or ""
+            except Exception as e:
+                print(f"[Admin] Supabase fetch user email note: {e}")
 
-            # Fetch user email first
-            row = conn.execute(
-                text("SELECT email FROM public.profiles WHERE id = :id"),
-                {"id": user_id}
-            ).first()
+        if not target_email and engine:
+            try:
+                with engine.connect() as conn:
+                    row = conn.execute(
+                        text("SELECT email FROM public.profiles WHERE id = :id"),
+                        {"id": user_id}
+                    ).first()
+                    if row:
+                        target_email = row[0]
+            except Exception as e:
+                print(f"[Admin] Engine fetch user email note: {e}")
 
-            if not row:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Pengguna tidak ditemukan."
-                )
+        if not target_email:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Pengguna tidak ditemukan."
+            )
 
-            target_email = row[0]
+        # Protect permanent master admins from demotion
+        if target_email.lower() in MASTER_ADMIN_EMAILS and target_role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Akun Master Administrator ({target_email}) permanen dan tidak dapat diturunkan perannya."
+            )
 
-            # Protect permanent master admins
-            if target_email.lower() in MASTER_ADMIN_EMAILS and target_role != "admin":
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Akun Master Administrator ({target_email}) permanen dan tidak dapat diturunkan perannya."
-                )
+        # Protect self-demotion
+        if user_id == current_admin.get("id") and target_role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Anda tidak dapat menurunkan role akun admin Anda sendiri."
+            )
 
-            # Protect self-demotion
-            if user_id == current_admin.get("id") and target_role != "admin":
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Anda tidak dapat menurunkan role akun admin Anda sendiri."
-                )
+        # Step 2: Update role via Direct SQL Engine
+        if engine:
+            try:
+                with engine.connect() as conn:
+                    conn.execution_options(isolation_level="AUTOCOMMIT")
+                    conn.execute(
+                        text("""
+                            UPDATE public.profiles
+                            SET role = :role
+                            WHERE id = :id
+                        """),
+                        {"id": user_id, "role": target_role}
+                    )
+                    updated = True
+            except Exception as e:
+                print(f"[Admin] Engine update role note: {e}")
 
-            conn.execute(
-                text("""
-                    UPDATE public.profiles
-                    SET role = :role
-                    WHERE id = :id
-                """),
-                {"id": user_id, "role": target_role}
+        # Step 3: Update role via Supabase REST API (HTTPS, bypasses network port limitations)
+        if sb:
+            try:
+                sb.table("profiles").update({"role": target_role}).eq("id", user_id).execute()
+                updated = True
+            except Exception as e:
+                print(f"[Admin] Supabase REST update role note: {e}")
+
+        if not updated:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Gagal memperbarui role: database tidak dapat dijangkau."
             )
 
         # Log admin activity
@@ -178,32 +214,67 @@ def delete_user(
 
     sb = get_supabase()
     target_email = ""
+    deleted = False
+
     try:
-        with engine.connect() as conn:
-            conn.execution_options(isolation_level="AUTOCOMMIT")
-            row = conn.execute(
-                text("SELECT email FROM public.profiles WHERE id = :id"),
-                {"id": user_id}
-            ).first()
-            if row:
-                target_email = row[0]
+        # Step 1: Find email first
+        if sb:
+            try:
+                res = sb.table("profiles").select("email").eq("id", user_id).limit(1).execute()
+                if res.data:
+                    target_email = res.data[0].get("email") or ""
+            except Exception as e:
+                print(f"[Admin] Supabase fetch user for delete note: {e}")
 
-            if target_email.lower() in MASTER_ADMIN_EMAILS:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Akun Master Administrator ({target_email}) permanen dan tidak dapat dihapus."
-                )
+        if not target_email and engine:
+            try:
+                with engine.connect() as conn:
+                    row = conn.execute(
+                        text("SELECT email FROM public.profiles WHERE id = :id"),
+                        {"id": user_id}
+                    ).first()
+                    if row:
+                        target_email = row[0]
+            except Exception as e:
+                print(f"[Admin] Engine fetch user for delete note: {e}")
 
-            conn.execute(
-                text("DELETE FROM public.profiles WHERE id = :id"),
-                {"id": user_id}
+        if target_email and target_email.lower() in MASTER_ADMIN_EMAILS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Akun Master Administrator ({target_email}) permanen dan tidak dapat dihapus."
             )
 
+        # Step 2: Delete via Engine
+        if engine:
+            try:
+                with engine.connect() as conn:
+                    conn.execution_options(isolation_level="AUTOCOMMIT")
+                    conn.execute(
+                        text("DELETE FROM public.profiles WHERE id = :id"),
+                        {"id": user_id}
+                    )
+                    deleted = True
+            except Exception as e:
+                print(f"[Admin] Engine delete user note: {e}")
+
+        # Step 3: Delete via Supabase REST API
         if sb:
+            try:
+                sb.table("profiles").delete().eq("id", user_id).execute()
+                deleted = True
+            except Exception as e:
+                print(f"[Admin] Supabase REST delete profile note: {e}")
+
             try:
                 sb.auth.admin.delete_user(user_id)
             except Exception as e:
                 print(f"[Admin] Supabase auth.admin.delete_user notice: {e}")
+
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Gagal menghapus pengguna: database tidak dapat dijangkau."
+            )
 
         # Log admin activity
         log_activity_event(

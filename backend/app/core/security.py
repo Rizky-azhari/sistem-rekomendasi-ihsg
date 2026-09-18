@@ -117,6 +117,11 @@ async def get_current_user(
         except Exception:
             pass
 
+    MASTER_ADMIN_EMAILS = [
+        "rizkyazhariputra2022@gmail.com",
+        "rizkyazhariputra336@gmail.com"
+    ]
+
     if not profile:
         profile = {
             "id": user_id,
@@ -125,6 +130,11 @@ async def get_current_user(
             "avatar_url": "",
             "role": "user"
         }
+
+    # Permanent admin enforcement for designated master admins
+    resolved_email = (profile.get("email") or email or "").lower().strip()
+    if resolved_email in MASTER_ADMIN_EMAILS:
+        profile["role"] = "admin"
 
     return profile
 

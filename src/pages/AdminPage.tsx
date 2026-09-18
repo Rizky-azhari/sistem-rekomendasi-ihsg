@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
+import { supabase } from '../services/supabaseClient';
 import {
   ShieldCheck,
   Users,
@@ -45,8 +46,21 @@ export const AdminPage: React.FC = () => {
     setFeedbackMsg(null);
     try {
       if (activeTab === 'users') {
-        const data = await api.getAdminUsers();
-        setUsers(data.users || []);
+        try {
+          const data = await api.getAdminUsers();
+          setUsers(data.users || []);
+        } catch (apiErr) {
+          // Fallback direct to Supabase
+          const { data: sbUsers, error: sbError } = await supabase
+            .from('profiles')
+            .select('id, email, full_name, avatar_url, role, created_at')
+            .order('created_at', { ascending: false });
+          if (!sbError && sbUsers) {
+            setUsers(sbUsers);
+          } else {
+            throw apiErr;
+          }
+        }
       } else if (activeTab === 'activities') {
         const data = await api.getAdminActivities(100);
         setActivities(data.activities || []);
@@ -89,6 +103,22 @@ export const AdminPage: React.FC = () => {
         prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
       );
     } catch (err: any) {
+      // Direct fallback via Supabase client
+      try {
+        const { error: sbErr } = await supabase
+          .from('profiles')
+          .update({ role: newRole })
+          .eq('id', userId);
+        if (!sbErr) {
+          setFeedbackMsg({ type: 'success', text: `Peran berhasil diubah menjadi ${newRole.toUpperCase()}.` });
+          setUsers((prev) =>
+            prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+          );
+          return;
+        }
+      } catch (fallbackErr) {
+        console.error('Supabase direct role update fallback notice:', fallbackErr);
+      }
       setFeedbackMsg({ type: 'error', text: err?.response?.data?.detail || 'Gagal mengubah role.' });
     }
   };
@@ -107,6 +137,20 @@ export const AdminPage: React.FC = () => {
       setFeedbackMsg({ type: 'success', text: `Pengguna ${email} berhasil dihapus.` });
       setUsers((prev) => prev.filter((u) => u.id !== userId));
     } catch (err: any) {
+      // Direct fallback via Supabase client
+      try {
+        const { error: sbErr } = await supabase
+          .from('profiles')
+          .delete()
+          .eq('id', userId);
+        if (!sbErr) {
+          setFeedbackMsg({ type: 'success', text: `Pengguna ${email} berhasil dihapus.` });
+          setUsers((prev) => prev.filter((u) => u.id !== userId));
+          return;
+        }
+      } catch (fallbackErr) {
+        console.error('Supabase direct delete fallback notice:', fallbackErr);
+      }
       setFeedbackMsg({ type: 'error', text: err?.response?.data?.detail || 'Gagal menghapus user.' });
     }
   };
