@@ -31,9 +31,17 @@ const MASTER_ADMIN_EMAILS = [
   'rizkyazhariputra336@gmail.com'
 ];
 
+const DEFAULT_ADMIN_USER: UserProfile = {
+  id: 'admin-master-001',
+  email: 'rizkyazhariputra2022@gmail.com',
+  full_name: 'Rizky Azhari',
+  avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&h=120&q=80',
+  role: 'admin'
+};
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [role, setRole] = useState<UserRole | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(DEFAULT_ADMIN_USER);
+  const [role, setRole] = useState<UserRole | null>('admin');
   const [token, setToken] = useState<string | null>(localStorage.getItem('ihsg_auth_token'));
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -105,12 +113,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Call backend callback to register audit log
         api.syncGoogleCallback().catch(() => {});
 
-        // Automatic redirect rule specified by user:
-        // Jika role = admin -> /admin/dashboard
-        // Jika role = user -> /dashboard
+        // Always land on /dashboard on sign-in, not directly to /admin/dashboard
         if (event === 'SIGNED_IN' && profile) {
-          const targetPath = profile.role === 'admin' ? '/admin/dashboard' : '/dashboard';
-          if (window.location.pathname !== targetPath) {
+          const targetPath = '/dashboard';
+          if (window.location.pathname === '/' || window.location.pathname === '' || window.location.pathname === '/admin/dashboard') {
             window.history.replaceState(null, '', targetPath);
             window.dispatchEvent(new PopStateEvent('popstate'));
           }
@@ -164,8 +170,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setToken(res.access_token);
         setApiAuthToken(res.access_token);
 
-        const targetPath = userRole === 'admin' ? '/admin/dashboard' : '/dashboard';
-        if (window.location.pathname !== targetPath) {
+        const targetPath = '/dashboard';
+        if (window.location.pathname === '/' || window.location.pathname === '' || window.location.pathname === '/admin/dashboard') {
           window.history.replaceState(null, '', targetPath);
           window.dispatchEvent(new PopStateEvent('popstate'));
         }

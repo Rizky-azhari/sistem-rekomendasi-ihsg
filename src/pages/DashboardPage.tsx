@@ -146,6 +146,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         <div className="flex flex-wrap items-center gap-3 sm:gap-5">
           <div>
             <div className="flex items-center gap-2">
+              <Activity className="w-3.5 h-3.5 text-[#22C7F0]" />
               <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">IHSG (IDX COMPOSITE)</span>
               <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
                 ^JKSE
@@ -164,6 +165,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               </span>
             </div>
           </div>
+
+          {/* Mini Sparkline in Market Header */}
+          {sparklineData.length > 0 && (
+            <div className="hidden sm:block w-28 sm:w-36 h-8">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={sparklineData}>
+                  <Area
+                    type="monotone"
+                    dataKey="price"
+                    stroke={isIHSGPositive ? '#10B981' : '#F43F5E'}
+                    strokeWidth={1.5}
+                    fill="none"
+                    isAnimationActive={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
 
           <div className="hidden sm:block h-8 w-[1px] bg-slate-800" />
 
@@ -206,50 +225,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* SECTION 2: SUMMARY CARDS (Desktop: 4 Col, Tablet: 2 Col, Mobile: 1 Col) */}
-      {/* Compact Height */}
+      {/* SECTION 2: SUMMARY CARDS (3 Columns: Saham Dianalisis, Bullish, Bearish) */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        
-        {/* CARD 1: IHSG Index */}
-        <div className="p-4 rounded-2xl bg-[#111827]/85 border border-slate-800/90 flex flex-col justify-between hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
-            <span className="font-semibold uppercase tracking-wider flex items-center gap-1.5">
-              <Activity className="w-4 h-4 text-[#22C7F0]" />
-              IHSG INDEX
-            </span>
-            <span className="text-[10px] font-mono text-slate-500">^JKSE</span>
-          </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
 
-          <div className="my-1">
-            <div className="text-2xl font-black font-mono text-white tracking-tight">
-              {ihsg ? ihsg.price.toLocaleString('id-ID', { minimumFractionDigits: 2 }) : '6,436.85'}
-            </div>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className={`text-[11px] font-mono font-bold ${isIHSGPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {isIHSGPositive ? '+' : ''}{ihsg?.change?.toFixed(2) || '-24.30'} ({isIHSGPositive ? '+' : ''}{ihsg?.change_percentage?.toFixed(2) || '-0.38'}%)
-              </span>
-            </div>
-          </div>
-
-          {/* Mini Sparkline */}
-          <div className="w-full h-8 -mb-1 mt-1">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={sparklineData}>
-                <Area
-                  type="monotone"
-                  dataKey="price"
-                  stroke={isIHSGPositive ? '#10B981' : '#F43F5E'}
-                  strokeWidth={1.5}
-                  fill="none"
-                  isAnimationActive={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* CARD 2: Jumlah Saham Dianalisis */}
+        {/* CARD 1: Jumlah Saham Dianalisis */}
         <div className="p-4 rounded-2xl bg-[#111827]/85 border border-indigo-500/25 flex flex-col justify-between hover:border-indigo-500/45 transition-all">
           <div className="flex items-center justify-between text-xs text-indigo-300 mb-1">
             <span className="font-semibold uppercase tracking-wider flex items-center gap-1.5">
@@ -279,7 +259,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </div>
         </div>
 
-        {/* CARD 3: Bullish Stocks */}
+        {/* CARD 2: Bullish Stocks */}
         <div className="p-4 rounded-2xl bg-[#111827]/85 border border-emerald-500/25 flex flex-col justify-between hover:border-emerald-500/45 transition-all">
           <div className="flex items-center justify-between text-xs text-emerald-300 mb-1">
             <span className="font-semibold uppercase tracking-wider flex items-center gap-1.5">
@@ -311,7 +291,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </div>
         </div>
 
-        {/* CARD 4: Bearish Stocks */}
+        {/* CARD 3: Bearish Stocks */}
         <div className="p-4 rounded-2xl bg-[#111827]/85 border border-rose-500/25 flex flex-col justify-between hover:border-rose-500/45 transition-all">
           <div className="flex items-center justify-between text-xs text-rose-300 mb-1">
             <span className="font-semibold uppercase tracking-wider flex items-center gap-1.5">

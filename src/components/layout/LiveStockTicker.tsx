@@ -205,15 +205,11 @@ export const LiveStockTicker: React.FC<LiveStockTickerProps> = ({
       </div>
 
       {/* ===================================================================== */}
-      {/* 3. RIGHT PINNED SECTION: MARKET STATUS & CLOCK */}
+      {/* 3. RIGHT PINNED SECTION: MARKET STATUS */}
       {/* ===================================================================== */}
-      <div className="hidden lg:flex shrink-0 items-center gap-2 px-3 h-full bg-[#0B132B]/95 border-l border-slate-800/90 text-[10px] font-mono text-slate-400 z-20">
-        <div className="flex items-center gap-1.5">
-          <Activity className="w-3 h-3 text-[#22C7F0]" />
-          <span className="text-slate-300 font-semibold">IDX COMPOSITE</span>
-        </div>
-        <span className="w-1 h-1 rounded-full bg-slate-700" />
-        <span className="text-slate-400">PASAR REGULER</span>
+      <div className="hidden lg:flex shrink-0 items-center gap-1.5 px-3 h-full bg-[#0B132B]/95 border-l border-slate-800/90 text-[10px] font-mono text-slate-400 z-20">
+        <Activity className="w-3 h-3 text-[#22C7F0]" />
+        <span className="text-slate-300 font-semibold tracking-wide">PASAR REGULER BEI</span>
       </div>
     </aside>
   );

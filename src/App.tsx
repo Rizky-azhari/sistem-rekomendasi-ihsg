@@ -3,7 +3,7 @@ import { Navbar, type NavTab } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
 import { LiveStockTicker } from './components/layout/LiveStockTicker';
 import { api } from './api/client';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import type {
   StockDetailResponse,
@@ -56,9 +56,12 @@ function getPathFromTab(tab: NavTab): string {
 }
 
 function MainAppContent() {
-  const [activeTab, setActiveTabState] = useState<NavTab>(() => getTabFromPath(window.location.pathname));
+  const [activeTab, setActiveTabState] = useState<NavTab>(() => {
+    const path = window.location.pathname;
+    if (path === '/' || path === '') return 'dashboard';
+    return getTabFromPath(path);
+  });
   const [selectedSymbol, setSelectedSymbol] = useState<string>('BBCA.JK');
-  const { role, isAuthenticated } = useAuth();
 
   // Set active tab and update URL
   const setActiveTab = useCallback((tab: NavTab) => {
@@ -80,15 +83,12 @@ function MainAppContent() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Auto-redirect rule on initial login
+  // Auto-redirect rule on initial open / root access: Always land on dashboard first
   useEffect(() => {
-    if (isAuthenticated && role) {
-      if (window.location.pathname === '/' || window.location.pathname === '') {
-        const defaultTab = role === 'admin' ? 'admin' : 'dashboard';
-        setActiveTab(defaultTab);
-      }
+    if (window.location.pathname === '/' || window.location.pathname === '') {
+      setActiveTab('dashboard');
     }
-  }, [isAuthenticated, role, setActiveTab]);
+  }, [setActiveTab]);
 
   // Data States
   const [ihsgData, setIhsgData] = useState<IHSGMarketData | null>(null);
